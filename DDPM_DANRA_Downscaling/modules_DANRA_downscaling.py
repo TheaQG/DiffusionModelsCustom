@@ -486,4 +486,35 @@ class Decoder(nn.Module):
         # Return the residual layers as a ModuleList
         layers = nn.ModuleList(layers)
         return layers
+
+class DiffusionNet(nn.Module):
+    '''
+        Class for the diffusion net. The diffusion net is used to encode and decode the input.
+        The diffusion net is a UNET with self-attention layers, and will be used for downscaling in the DDPM.
+    '''
+    def __init__(self, encoder:Encoder, decoder:Decoder):
+        '''
+            Initialize the class.
+            Input:
+                - encoder: encoder module
+                - decoder: decoder module
+        '''
+        # Initialize the class
+        super(DiffusionNet, self).__init__()
+        
+        # Set the encoder and decoder modules
+        self.encoder = encoder
+        self.decoder = decoder
     
+    def forward(self, x:torch.Tensor, t:torch.Tensor):
+        '''
+            Forward function for the class.
+            Input:
+                - x: input tensor
+                - t: time embedding tensor 
+        '''
+        # Encode the input x
+        enc_fmaps = self.encoder(x, t=t)
+        # Decode the encoded input, using the encoded feature maps
+        segmentation_mask = self.decoder(*enc_fmaps, t=t)
+        return segmentation_mask

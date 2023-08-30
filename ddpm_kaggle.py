@@ -270,7 +270,7 @@ if __name__ == '__main__':
 
     pipeline = TrainingPipeline(model, lossfunc, optimizer, diffusion_utils, device, weight_init=True)
 
-    checkpoint_path = '/kaggle/input/ddpm-model-params/DDPM.pth.tar'
+    checkpoint_path = '../ModelCheckpoints/kaggle/input/ddpm-model-params/DDPM.pth.tar'
     if os.path.isfile(checkpoint_path):
         print('Loading pretrained weights...')
         checkpoint_state = torch.load(checkpoint_path, map_location=device)['network_params']

@@ -276,3 +276,15 @@ class Decoder(nn.Module):
     
 
 
+class DiffusionNet(nn.Module):
+    def __init__(self, encoder:Encoder, decoder:Decoder):
+        
+        super(DiffusionNet, self).__init__()
+        
+        self.encoder = encoder
+        self.decoder = decoder
+    
+    def forward(self, x:torch.Tensor, t:torch.Tensor):
+        enc_fmaps = self.encoder(x, t=t)
+        segmentation_mask = self.decoder(*enc_fmaps, t=t)
+        return segmentation_mask

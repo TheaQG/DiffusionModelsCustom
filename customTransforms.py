@@ -44,3 +44,5 @@ class Scale(object):
         DataNew = np.zeros_like(self.data)
         for i in range(len(self.data)):
             DataNew[i,:,:] = (((self.data[i,:,:] - self.data_min_in) * NewRange) / OldRange) + self.in_low
+
+        return DataNew

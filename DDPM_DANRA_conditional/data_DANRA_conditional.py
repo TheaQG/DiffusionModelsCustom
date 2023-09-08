@@ -15,6 +15,22 @@ from multiprocessing import Manager as SharedMemoryManager
 
 from multiprocessing import freeze_support
 
+def determine_season(filename):
+    '''
+        Determine the season based on the filename, format _YYYYMMDD.npz.
+    '''
+
+    # Extract the month from the filename
+    month = int(filename.replace('.npz','')[-4:-2]) # Extracting MM from YYYYMMDD
+    # Determine season based on month
+    if month in [3, 4, 5]:
+        return 0
+    elif month in [6, 7, 8]:
+        return 1
+    elif month in [9, 10, 11]:
+        return 2
+    else:
+        return 3
 
 # Define custom transform
 class Scale(object):
@@ -92,9 +108,9 @@ class DANRA_Dataset(Dataset):
         self.files = random.sample(self.files, self.n_samples)
         
         # Set cache for data loading - if cache_size is 0, no caching is used
-        # self.cache = multiprocessing.Manager().dict()
+        self.cache = multiprocessing.Manager().dict()
         # #self.cache = SharedMemoryManager().dict()
-        print('All good')
+        
         # Set transforms
         if scale:
             self.transforms = transforms.Compose([
@@ -144,17 +160,26 @@ class DANRA_Dataset(Dataset):
 
         # Get file path, join directory and file name
         file_path = os.path.join(self.data_dir, self.files[idx])
+
+        # Extract season from filename
+        season = determine_season(self.files[idx])
+        season = torch.tensor(season)
+
         # Load image from file and subtract 273.15 to convert from Kelvin to Celsius
-        img = np.load(file_path)['data'] - 273.15
+        with np.load(file_path) as data:
+            img = data['data'] - 273.15
+        
 
         # Apply transforms if any
         if self.transforms:
             img = self.transforms(img)
 
-        # # Add item to cache
-        # self._addToCache(idx, img)
+        sample = (img, season)
 
-        return img
+        # Add item to cache
+        self._addToCache(idx, sample)
+
+        return sample
     
     def __name__(self, idx:int):
         '''
@@ -193,29 +218,37 @@ if __name__ == '__main__':
     image_size = (n_danra_size, n_danra_size)
     
 
-    print('\n\nTesting data_kaggle.py with multiprocessing freeze_support()\n\n')
 
     # Initialize dataset
-    dataset = DANRA_Dataset(data_dir_danra, image_size, n_samples, cache_size, scale=True)
+    dataset = DANRA_Dataset(data_dir_danra, image_size, n_samples, cache_size, scale=True, data_min_in=-10, data_max_in=30)
 
-    # Get sample image
-    idx = 0
-    sample_img = dataset[idx]
-    sample_name = dataset.__name__(idx)
-
-    # Print information about sample image
-    print(f'\n\nshape: {sample_img.shape}')
-    print(f'min pixel value: {sample_img.min()}')
-    print(f'mean pixel value: {sample_img.mean()}')
-    print(f'max pixel value: {sample_img.max()}\n')
+    # Get sample images
+    
+    n_samples = 4
+    idxs = random.sample(range(0, len(dataset)), n_samples)
     
     # Plot sample image with colorbar
-    fig, ax = plt.subplots(1, 1, figsize=(5, 5))
-    ax.set_title('Sample Image' + sample_name.replace('.npz',''))
+    fig, axs = plt.subplots(1, n_samples, figsize=(15, 4))
+    for idx, ax in enumerate(axs.flatten()):
 
-    img = sample_img.squeeze()
-    image = ax.imshow(img, cmap='viridis')
-    fig.colorbar(image, ax=ax, fraction=0.046, pad=0.04)
+        sample_img, sample_season = dataset[idx]
+        sample_name = dataset.__name__(idx)
+
+        # Print information about sample image
+        print(f'\n\nshape: {sample_img.shape}')
+        print(f'season: {sample_season}')
+        print(f'min pixel value: {sample_img.min()}')
+        print(f'mean pixel value: {sample_img.mean()}')
+        print(f'max pixel value: {sample_img.max()}\n')
+
+        ax.axis('off')
+        ax.set_title(sample_name.replace('.npz','') + ', \nseason: ' + str(sample_season))
+
+        img = sample_img.squeeze()
+        image = ax.imshow(img, cmap='viridis', vmin=-1, vmax=1)
+        fig.colorbar(image, ax=ax, fraction=0.046, pad=0.04)
+    
+    fig.set_tight_layout(True)
     plt.show()
 
 

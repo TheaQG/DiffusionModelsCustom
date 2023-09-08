@@ -127,7 +127,7 @@ class Encoder(ResNet):
         The encoder works as a downsample block, and will be used to downsample the input.
     '''
     def __init__(self, input_channels:int, time_embedding:int, 
-        block=BasicBlock, block_layers:list=[2, 2, 2, 2], n_heads:int=4):
+        block=BasicBlock, block_layers:list=[2, 2, 2, 2], n_heads:int=4, num_classes:int=None):
         '''
             Initialize the class. 
             Input:
@@ -174,11 +174,24 @@ class Encoder(ResNet):
             padding=(3, 3),
             bias=False)
 
+        # If conditional, set the label embedding layer from the number of classes to the time embedding size
+        if num_classes is not None:
+            self.label_emb = nn.Embedding(num_classes, time_embedding)
+
         #delete unwanted layers, i.e. maxpool(=self.maxpool), fully connected layer(=self.fc) and average pooling(=self.avgpool
         del self.maxpool, self.fc, self.avgpool
         
-        
-    def forward(self, x:torch.Tensor, t:torch.Tensor):
+    def pos_encoding(self, t, channels):
+        inv_freq = 1.0 / (
+            1000
+            ** (torch.arange(0, channels, 2).float() / channels)
+        )
+        pos_enc_a = torch.sin(t.repeat(1, channels // 2) * inv_freq)
+        pos_enc_b = torch.cos(t.repeat(1, channels // 2) * inv_freq)
+        pos_enc = torch.cat([pos_enc_a, pos_enc_b], dim=-1)
+        return pos_enc
+
+    def forward(self, x:torch.Tensor, t:torch.Tensor, y:torch.Tensor):
         '''
             Forward function for the class. The input x and time embedding t are used to calculate the output.
             The output is the encoded input x.
@@ -187,7 +200,19 @@ class Encoder(ResNet):
                 - t: time embedding tensor
         '''
         # Embed the time positions
-        t = self.sinusiodal_embedding(t)
+        t = t.unsqueeze(-1).type(torch.float)
+        t = self.pos_encoding(t, self.time_embedding)
+
+        #t = self.sinusiodal_embedding(t)
+        # Add the label embedding to the time embedding
+        if y is not None:
+            # print('Time embedding size:')
+            # print(t.shape)  
+            # print('Label size:')
+            # print(y.shape)
+            # print('Label embedding size:')
+            # print(self.label_emb(y).shape)
+            t += self.label_emb(y)
         
         # Prepare fmap1, the first feature map, by applying the first convolutional layer to the input x
         fmap1 = self.conv1(x)
@@ -506,7 +531,7 @@ class DiffusionNet(nn.Module):
         self.encoder = encoder
         self.decoder = decoder
     
-    def forward(self, x:torch.Tensor, t:torch.Tensor):
+    def forward(self, x:torch.Tensor, t:torch.Tensor, y:torch.Tensor):
         '''
             Forward function for the class.
             Input:
@@ -514,7 +539,7 @@ class DiffusionNet(nn.Module):
                 - t: time embedding tensor 
         '''
         # Encode the input x
-        enc_fmaps = self.encoder(x, t=t)
+        enc_fmaps = self.encoder(x, t=t, y=y)
         # Decode the encoded input, using the encoded feature maps
         segmentation_mask = self.decoder(*enc_fmaps, t=t)
         return segmentation_mask

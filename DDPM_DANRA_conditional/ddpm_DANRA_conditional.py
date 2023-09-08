@@ -11,10 +11,10 @@ from typing import Optional, Union, Iterable, Tuple
 
 
 # Import objects from other files in this repository
-from data_DANRA_downscaling import DANRA_Dataset
-from modules_DANRA_downscaling import *
-from diffusion_DANRA_downscaling import DiffusionUtils
-from training_DANRA_downscaling import TrainingPipeline
+from data_DANRA_conditional import DANRA_Dataset
+from modules_DANRA_conditional import *
+from diffusion_DANRA_conditional import DiffusionUtils
+from training_DANRA_conditional import TrainingPipeline
 
 if __name__ == '__main__':
     print(torch.__version__)
@@ -57,23 +57,24 @@ if __name__ == '__main__':
     output_channels = 1
     n_samples = n_files
     cache_size = n_files
-    image_size =(64,64)#(32,32)#(n_danra_size, n_danra_size)#
+    image_size = (64,64)#(32,32)#(n_danra_size, n_danra_size)#
+    n_seasons = 4
 
     # Define model hyperparameters
-    epochs = 20
-    batch_size = 20
+    epochs = 600
+    batch_size = 14
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     first_fmap_channels = 64#n_danra_size #
     last_fmap_channels = 512 #2048
     time_embedding = 256
-    learning_rate = 1e-2 #1e-2
+    learning_rate = 3e-4 #1e-2
     min_lr = 1e-6
     weight_decay = 0.0
 
     # Define diffusion hyperparameters
-    n_timesteps = 800
+    n_timesteps = 1000
     beta_min = 1e-4
-    beta_max = 2e-2
+    beta_max = 0.02
     beta_scheduler = 'linear'
 
 
@@ -95,7 +96,7 @@ if __name__ == '__main__':
     torch.backends.cudnn.benchmark = False
 
     # Define the encoder and decoder from modules_DANRA_downscaling.py
-    encoder = Encoder(input_channels, time_embedding, block_layers=[2, 2, 2, 2])
+    encoder = Encoder(input_channels, time_embedding, block_layers=[2, 2, 2, 2], num_classes=4)
     decoder = Decoder(last_fmap_channels, output_channels, time_embedding, first_fmap_channels)
     # Define the model from modules_DANRA_downscaling.py
     model = DiffusionNet(encoder, decoder)
@@ -112,7 +113,7 @@ if __name__ == '__main__':
 
     # Define the path to the pretrained model 
     checkpoint_dir = '../../ModelCheckpoints/DDPM_DANRA/'
-    checkpoint_name = 'DDPM_newKernelSize_8x8.pth.tar'
+    checkpoint_name = 'DDPM_conditional.pth.tar'
     checkpoint_path = os.path.join(checkpoint_dir, checkpoint_name)
     # Check if the path exists
     if os.path.isfile(checkpoint_path):
@@ -123,9 +124,14 @@ if __name__ == '__main__':
 
     if TEST_MODEL:
         print('\nTesting model output size...\n')
-        test_input = torch.randn(2,input_channels,*image_size).to(device)
-        t_test = torch.Tensor([2, 5]).to(device)
-        test = pipeline.model(test_input, t_test)
+        test_input = torch.randn(4,input_channels,*image_size).to(device)
+        t_test = torch.Tensor([1, 5, 7, 11]).to(device)
+        y_test = torch.zeros(n_seasons)
+        idx_test = np.random.randint(0, n_seasons)
+        y_test[idx_test] = 1
+        y_test = y_test.type(torch.int64).to(device)
+
+        test = pipeline.model(test_input, t_test, y_test)
 
         print('\n')
         print(f'Output shape of test: {test.shape}')
@@ -154,7 +160,7 @@ if __name__ == '__main__':
             PLOT_FIRST_IMG = False
 
         # Call the train function from pipeline
-        train_loss = pipeline.train(train_dataloader, verbose=True, PLOT_FIRST=PLOT_FIRST_IMG)
+        train_loss = pipeline.train(train_dataloader, verbose=True, PLOT_FIRST=PLOT_FIRST_IMG, SAVE_PATH=PATH_SAVE)
         # Append train loss to list
         train_losses.append(train_loss)
         
@@ -170,17 +176,26 @@ if __name__ == '__main__':
         if (((epoch + 1) % 10) == 0 and PLOT_EPOCH_SAMPLES) or (epoch == (epochs - 1) and PLOT_EPOCH_SAMPLES):
             print('Generating samples...')
             n = 4
+            # Generate random fields of batchsize n
             x = torch.randn(n, input_channels, *image_size).to(device)
-            generated_images = diffusion_utils.sample(x, pipeline.model)
+
+            # Generate random season labels of batchsize n
+            y = torch.randint(0, 4, (n,)).to(device) # 4 seasons, 0-3
+
+            # Sample generated images from model
+            generated_images = diffusion_utils.sample(x, pipeline.model, y)
             generated_images = generated_images.detach().cpu()
 
+            # Plot generated images
             fig, axs = plt.subplots(1, n, figsize=(8,3))
 
             for i in range(n):
                 img = generated_images[i].squeeze()
-                img = img.type(torch.uint8)
                 axs[i].imshow(img)
-            plt.show()
+                axs[i].set_title(f'Season: {y[i].item()}')
+            fig.tight_layout()
+            fig.savefig(PATH_SAVE + '/Samples/Samples_64x64/Generated_samples_64x64__v2__epoch_' + str(epoch+1) + '.png', dpi=600, bbox_inches='tight', pad_inches=0.1)
+            plt.close(fig)
 
     # Load best model state
     best_model_path = checkpoint_path#os.path.join('../../ModelCheckpoints/DDPM_DANRA', 'DDPM.pth.tar')
@@ -196,7 +211,12 @@ if __name__ == '__main__':
 
     # Generate samples
     x = torch.randn(n, input_channels, *image_size).to(device)
-    generated_images = diffusion_utils.sample(x, pipeline.model)
+
+    # Generate random season labels of batchsize n
+    y = torch.randint(0, 4, (n,)).to(device) # 4 seasons, 0-3
+
+    # Sample generated images from model
+    generated_images = diffusion_utils.sample(x, pipeline.model, y)
     generated_images = generated_images.detach().cpu()
 
     # Plot samples
@@ -205,10 +225,22 @@ if __name__ == '__main__':
     for i in range(n):
         img = generated_images[i].squeeze()
         axs[i].imshow(img)
-        axs[i].set_title(f'Generated Image {i+1}')
+        axs[i].set_title(f'Generated Image {i+1}, season: {y[i].item()}')
 
-    fig.savefig(PATH_SAVE + f'/ddpm_kaggle_ex__{var}_generated_samples_32x32.png', dpi=600, bbox_inches='tight', pad_inches=0.1)
+    fig.savefig(PATH_SAVE + f'/Samples/Samples_64x64/ddpm_kaggle_ex__{var}_generated_samples_64x64__v2__conditional.png', dpi=600, bbox_inches='tight', pad_inches=0.1)
     plt.show()
+
+    import pickle
+
+    fig, ax = plt.subplots(1, 1, figsize=(10, 5))
+    ax.plot(train_losses)
+    ax.set_xlabel('Epoch')
+    ax.set_ylabel('Loss')
+    ax.set_title('Training Loss')
+    fig.savefig(PATH_SAVE + f'/ddpm_kaggle_ex__{var}_training_loss_conditional_64x64.png', dpi=600, bbox_inches='tight', pad_inches=0.1)
+
+    with open('train_losses_conditional', 'wb') as fp:
+        pickle.dump(train_losses, fp)
 
 
 

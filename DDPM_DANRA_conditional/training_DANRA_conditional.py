@@ -2,8 +2,8 @@ import os, tqdm, torch
 from multiprocessing import freeze_support
 import torch.nn as nn
 
-from modules_DANRA_downscaling import *
-from diffusion_DANRA_downscaling import DiffusionUtils
+from modules_DANRA_conditional import *
+from diffusion_DANRA_conditional import DiffusionUtils
 
 
 
@@ -81,7 +81,7 @@ class TrainingPipeline:
         return torch.save(state_dicts, os.path.join(dirname, filename))
     
 
-    def train(self, dataloader, verbose=True, PLOT_FIRST=False):
+    def train(self, dataloader, verbose=True, PLOT_FIRST=False, SAVE_PATH='./'):
         '''
             Function for training model.
             Input:
@@ -94,17 +94,21 @@ class TrainingPipeline:
         # Set loss to 0
         loss = 0
         
-        # Loop over batches in dataloader, using tqdm for progress bar
-        for idx, images in tqdm.tqdm(enumerate(dataloader)):
+        # Loop over batches(tuple of img and seasons) in dataloader, using tqdm for progress bar
+        for idx, (images, seasons) in tqdm.tqdm(enumerate(dataloader)):
             
             # Set gradients to zero
             self.model.zero_grad()
-            # Set images to device
+            # Set images and seasons to device
             images = images.to(self.device)
+            seasons = seasons.to(self.device)
             
             if PLOT_FIRST:
-                plt.imshow(images[0].permute(1,2,0).cpu().detach().numpy())
+                fig, ax = plt.subplots()
+                ax.imshow(images[0].permute(1,2,0).cpu().detach().numpy())
                 plt.show()
+                fig.savefig(SAVE_PATH + '/upsampled_imgage.png', dpi=600, bbox_inches='tight')
+
                 PLOT_FIRST = False
 
             # Sample timesteps from diffusion utils
@@ -114,7 +118,7 @@ class TrainingPipeline:
             x_t, noise = self.diffusion_utils.noiseImage(images, t)
 
             # Set predicted noise as output from model
-            predicted_noise = self.model(x_t, t)
+            predicted_noise = self.model(x_t, t, seasons)
 
             # Calculate loss
             batch_loss = self.lossfunc(predicted_noise, noise)

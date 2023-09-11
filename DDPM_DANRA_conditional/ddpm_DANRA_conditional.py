@@ -35,7 +35,7 @@ if __name__ == '__main__':
 
     # Define DANRA data information 
     # Set variable for use
-    var = 'temp'#'prcp'#
+    var = 'temp'#'prcp'# 
     # Set size of DANRA images
     n_danra_size = 128# 256#
     # Set DANRA size string for use in path
@@ -61,13 +61,13 @@ if __name__ == '__main__':
     n_seasons = 4
 
     # Define model hyperparameters
-    epochs = 600
-    batch_size = 14
+    epochs = 60
+    batch_size = 64
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     first_fmap_channels = 64#n_danra_size #
     last_fmap_channels = 512 #2048
     time_embedding = 256
-    learning_rate = 3e-4 #1e-2
+    learning_rate = 1e-2#3e-4 #1e-2
     min_lr = 1e-6
     weight_decay = 0.0
 
@@ -82,7 +82,7 @@ if __name__ == '__main__':
     train_dataset = DANRA_Dataset(data_dir_danra, image_size, n_samples, cache_size, scale=True)
 
     # Define the torch dataloader
-    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=2)
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=1)
 
     # Define the seed for reproducibility, and set seed for torch, numpy and random
     seed = 42
@@ -191,7 +191,7 @@ if __name__ == '__main__':
 
             for i in range(n):
                 img = generated_images[i].squeeze()
-                axs[i].imshow(img)
+                axs[i].imshow(img, vmin=-1, vmax=1, cmap='viridis')
                 axs[i].set_title(f'Season: {y[i].item()}')
             fig.tight_layout()
             fig.savefig(PATH_SAVE + '/Samples/Samples_64x64/Generated_samples_64x64__v2__epoch_' + str(epoch+1) + '.png', dpi=600, bbox_inches='tight', pad_inches=0.1)
@@ -224,7 +224,7 @@ if __name__ == '__main__':
 
     for i in range(n):
         img = generated_images[i].squeeze()
-        axs[i].imshow(img)
+        axs[i].imshow(img, vmin=-1, vmax=1, cmap='viridis')
         axs[i].set_title(f'Generated Image {i+1}, season: {y[i].item()}')
 
     fig.savefig(PATH_SAVE + f'/Samples/Samples_64x64/ddpm_kaggle_ex__{var}_generated_samples_64x64__v2__conditional.png', dpi=600, bbox_inches='tight', pad_inches=0.1)

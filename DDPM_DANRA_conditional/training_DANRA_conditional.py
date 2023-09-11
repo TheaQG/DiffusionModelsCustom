@@ -108,6 +108,7 @@ class TrainingPipeline:
                 ax.imshow(images[0].permute(1,2,0).cpu().detach().numpy())
                 plt.show()
                 fig.savefig(SAVE_PATH + '/upsampled_imgage.png', dpi=600, bbox_inches='tight')
+                plt.close(fig)
 
                 PLOT_FIRST = False
 

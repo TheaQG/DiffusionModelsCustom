@@ -127,7 +127,7 @@ class Encoder(ResNet):
         The encoder works as a downsample block, and will be used to downsample the input.
     '''
     def __init__(self, input_channels:int, time_embedding:int, 
-        block=BasicBlock, block_layers:list=[2, 2, 2, 2], n_heads:int=4, num_classes:int=None):
+        block=BasicBlock, block_layers:list=[2, 2, 2, 2], n_heads:int=4, num_classes:int=None, lsm_tensor=None, topo_tensor=None):
         '''
             Initialize the class. 
             Input:
@@ -143,9 +143,18 @@ class Encoder(ResNet):
         self.time_embedding = time_embedding
         self.input_channels = input_channels
         self.n_heads = n_heads
+        self.num_classes = num_classes
         
         # Initialize the ResNet with the given block and block_layers
         super(Encoder, self).__init__(self.block, self.block_layers)
+
+        # Register the lsm and elevation tensors as buffers (i.e. they are not trained) and add a channel for each of them
+        if lsm_tensor is not None:
+            self.register_buffer('lsm', lsm_tensor)
+            self.input_channels += 1
+        if topo_tensor is not None:
+            self.register_buffer('elevation', topo_tensor)
+            self.input_channels += 1
         
         # Initialize the sinusoidal time embedding layer with the given time_embedding
         self.sinusiodal_embedding = SinusoidalEmbedding(self.time_embedding)
@@ -176,10 +185,13 @@ class Encoder(ResNet):
 
         # If conditional, set the label embedding layer from the number of classes to the time embedding size
         if num_classes is not None:
+            
             self.label_emb = nn.Embedding(num_classes, time_embedding)
 
         #delete unwanted layers, i.e. maxpool(=self.maxpool), fully connected layer(=self.fc) and average pooling(=self.avgpool
         del self.maxpool, self.fc, self.avgpool
+
+        
         
     def pos_encoding(self, t, channels):
         inv_freq = 1.0 / (
@@ -199,9 +211,15 @@ class Encoder(ResNet):
                 - x: input tensor
                 - t: time embedding tensor
         '''
+        if hasattr(self, 'lsm'):
+            x = torch.cat([x, self.lsm.repeat(x.size(0), 1, 1, 1)], dim=1)
+        if hasattr(self, 'elevation'):
+            x = torch.cat([x, self.elevation.repeat(x.size(0), 1, 1, 1)], dim=1)
+
+
         # Embed the time positions
         t = t.unsqueeze(-1).type(torch.float)
-        t = self.pos_encoding(t, self.time_embedding)
+        t = self.pos_encoding(t, self.time_embedding)#self.num_classes)
 
         #t = self.sinusiodal_embedding(t)
         # Add the label embedding to the time embedding
@@ -212,6 +230,7 @@ class Encoder(ResNet):
             # print(y.shape)
             # print('Label embedding size:')
             # print(self.label_emb(y).shape)
+
             t += self.label_emb(y)
         
         # Prepare fmap1, the first feature map, by applying the first convolutional layer to the input x
@@ -517,7 +536,7 @@ class DiffusionNet(nn.Module):
         Class for the diffusion net. The diffusion net is used to encode and decode the input.
         The diffusion net is a UNET with self-attention layers, and will be used for downscaling in the DDPM.
     '''
-    def __init__(self, encoder:Encoder, decoder:Decoder):
+    def __init__(self, encoder:Encoder, decoder:Decoder, lsm_tensor=None, topo_tensor=None):
         '''
             Initialize the class.
             Input:
@@ -537,6 +556,7 @@ class DiffusionNet(nn.Module):
             Input:
                 - x: input tensor
                 - t: time embedding tensor 
+                - y: label tensor
         '''
         # Encode the input x
         enc_fmaps = self.encoder(x, t=t, y=y)

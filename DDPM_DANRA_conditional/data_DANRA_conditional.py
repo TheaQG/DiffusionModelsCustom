@@ -15,22 +15,149 @@ from multiprocessing import Manager as SharedMemoryManager
 
 from multiprocessing import freeze_support
 
-def determine_season(filename):
-    '''
-        Determine the season based on the filename, format _YYYYMMDD.npz.
-    '''
 
-    # Extract the month from the filename
-    month = int(filename.replace('.npz','')[-4:-2]) # Extracting MM from YYYYMMDD
-    # Determine season based on month
-    if month in [3, 4, 5]:
-        return 0
-    elif month in [6, 7, 8]:
-        return 1
-    elif month in [9, 10, 11]:
-        return 2
-    else:
-        return 3
+def preprocess_lsm_topography(lsm_path, topo_path, target_size):
+    '''
+        Preprocess the lsm and topography data.
+        Function loads the data, converts it to tensors, normalizes the topography data to [0, 1] interval,
+        and upscales the data to match the target size.
+
+        Input:
+            - lsm_path: path to lsm data
+            - topo_path: path to topography data
+            - target_size: tuple containing the target size of the data
+    '''
+    # 1. Load the Data
+    lsm_data = np.load(lsm_path)['data']
+    topo_data = np.load(topo_path)['data']
+    
+    # 2. Convert to Tensors
+    lsm_tensor = torch.tensor(lsm_data).float().unsqueeze(0)  # Add channel dimension
+    topo_tensor = torch.tensor(topo_data).float().unsqueeze(0)
+    
+    # 3. Normalize Topography to [0, 1] interval
+    topo_tensor = (topo_tensor - topo_tensor.min()) / (topo_tensor.max() - topo_tensor.min())
+    
+    # 4. Upscale the Fields to match target size
+    resize_transform = transforms.Resize(target_size, antialias=True)
+    lsm_tensor = resize_transform(lsm_tensor)
+    topo_tensor = resize_transform(topo_tensor)
+    
+    return lsm_tensor, topo_tensor
+
+
+
+class DateFromFile:
+    def __init__(self, filename):
+        self.filename = filename
+        self.year = int(self.filename[-12:-8])
+        self.month = int(self.filename[-8:-6])
+        self.day = int(self.filename[-6:-4])
+
+    def determine_season(self):
+        # Determine season based on month
+        if self.month in [3, 4, 5]:
+            return 0
+        elif self.month in [6, 7, 8]:
+            return 1
+        elif self.month in [9, 10, 11]:
+            return 2
+        else:
+            return 3
+
+    def determine_month(self):
+        # Returns the month as an integer in the interval [0, 11]
+        return self.month - 1
+
+    @staticmethod
+    def is_leap_year(year):
+        """Check if a year is a leap year"""
+        if (year % 4 == 0 and year % 100 != 0) or (year % 400 == 0):
+            return True
+        return False
+
+    def determine_day(self):
+        # Days in month for common years and leap years
+        days_in_month_common = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+        days_in_month_leap = [0, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+
+        # Determine if the year is a leap year
+        if self.is_leap_year(self.year):
+            days_in_month = days_in_month_leap
+        else:
+            days_in_month = days_in_month_common
+
+        # Compute the day of the year
+        day_of_year = sum(days_in_month[:self.month]) + self.day - 1  # "-1" because if it's January 1st, it's the 0th day of the year
+        return day_of_year
+
+
+
+# def determine_season(filename):
+#     '''
+#         Determine the season based on the filename, format _YYYYMMDD.npz.
+#     '''
+
+#     # Extract the month from the filename
+#     month = int(filename.replace('.npz','')[-4:-2]) # Extracting MM from YYYYMMDD
+#     # Determine season based on month
+#     if month in [3, 4, 5]:
+#         return 0
+#     elif month in [6, 7, 8]:
+#         return 1
+#     elif month in [9, 10, 11]:
+#         return 2
+#     else:
+#         return 3
+    
+# def determine_month(filename):
+#     '''
+#         Determine the month based on the filename, format _YYYYMMDD.npz.
+#         Returns the month as an integer in the interval [0, 11]
+#     '''
+
+#     # Extract the month from the filename
+#     month = int(filename.replace('.npz','')[-4:-2]) - 1 # Extracting MM from YYYYMMDD
+    
+#     return month
+
+
+# def is_leap_year(year):
+#     """Check if a year is a leap year"""
+#     if (year % 4 == 0 and year % 100 != 0) or (year % 400 == 0):
+#         return True
+#     return False
+
+
+# def day_of_year(filename):
+#     '''
+#         Determine the day of the year based on the filename, format _YYYYMMDD.npz.
+#         Returns the day of the year as an integer in the interval [0, 364]
+#     '''
+    
+#     # Days in month for common years and leap years
+#     days_in_month_common = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+#     days_in_month_leap = [0, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    
+#     # Extract year, month, and day from the filename
+#     year = int(filename[-12:-8])  # Extracting YYYY from _YYYYMMDD
+#     month = int(filename[-6:-4])  # Extracting MM from YYYYMMDD
+#     day = int(filename[-8:-6])   # Extracting DD from YYYYMMDD
+    
+#     # Determine if the year is a leap year
+#     if is_leap_year(year):
+#         days_in_month = days_in_month_leap
+#     else:
+#         days_in_month = days_in_month_common
+    
+#     # Compute the day of the year
+#     day_of_year = sum(days_in_month[:month]) + day - 1  # "-1" because if it's January 1st, it's the 0th day of the year
+    
+#     return day_of_year
+
+
+
+
 
 # Define custom transform
 class Scale(object):
@@ -79,7 +206,7 @@ class DANRA_Dataset(Dataset):
 
     '''
     def __init__(self, data_dir:str, data_size:tuple, n_samples:int=365, cache_size:int=365, scale=True,
-                 in_low=-1, in_high=1, data_min_in=-30, data_max_in=30):
+                 in_low=-1, in_high=1, data_min_in=-30, data_max_in=30, conditional=True, n_classes=4):
         '''
             Initialize the class.
             Input:
@@ -97,6 +224,8 @@ class DANRA_Dataset(Dataset):
         self.in_high = in_high
         self.data_min_in = data_min_in
         self.data_max_in = data_max_in
+        self.conditional = conditional
+        self.n_classes = n_classes
 
         # Load files from directory
         self.files = sorted(os.listdir(self.data_dir))
@@ -160,10 +289,44 @@ class DANRA_Dataset(Dataset):
 
         # Get file path, join directory and file name
         file_path = os.path.join(self.data_dir, self.files[idx])
+        file_name = self.files[idx]
+        
+        if self.conditional:
+            if self.n_classes == 4:
 
-        # Extract season from filename
-        season = determine_season(self.files[idx])
-        season = torch.tensor(season)
+                # Determine class from filename
+                dateObj = DateFromFile(file_name)
+                classifier = dateObj.determine_season()
+            
+            elif self.n_classes == 12:
+                # Determine class from filename
+                dateObj = DateFromFile(file_name)
+                classifier = dateObj.determine_month()
+
+            elif self.n_classes == 365:
+                # Determine class from filename
+                dateObj = DateFromFile(file_name)
+                classifier = dateObj.determine_day()
+
+            else:
+                raise ValueError('n_classes must be 4, 12 or 365')
+            
+            # # Convert classifier to one-hot encoding
+            # class_idx = torch.tensor(classifier)
+            # classifier = torch.zeros(self.n_classes)
+            # classifier[class_idx] = 1            
+
+            classifier = torch.tensor(classifier)
+        
+        elif not self.conditional:
+            # Set classifier to None
+            classifier = None
+        else:
+            raise ValueError('conditional must be True or False')
+
+
+
+            
 
         # Load image from file and subtract 273.15 to convert from Kelvin to Celsius
         with np.load(file_path) as data:
@@ -174,7 +337,12 @@ class DANRA_Dataset(Dataset):
         if self.transforms:
             img = self.transforms(img)
 
-        sample = (img, season)
+        if self.conditional:
+            # Return sample image and classifier
+            sample = (img, classifier)
+        else:
+            # Return sample image
+            sample = (img)
 
         # Add item to cache
         self._addToCache(idx, sample)
@@ -220,7 +388,7 @@ if __name__ == '__main__':
 
 
     # Initialize dataset
-    dataset = DANRA_Dataset(data_dir_danra, image_size, n_samples, cache_size, scale=True, data_min_in=-10, data_max_in=30)
+    dataset = DANRA_Dataset(data_dir_danra, image_size, n_samples, cache_size, scale=False, conditional=True, n_classes=12)
 
     # Get sample images
     
@@ -242,10 +410,10 @@ if __name__ == '__main__':
         print(f'max pixel value: {sample_img.max()}\n')
 
         ax.axis('off')
-        ax.set_title(sample_name.replace('.npz','') + ', \nseason: ' + str(sample_season))
+        ax.set_title(sample_name.replace('.npz','') + ', \nclass: ' + str(sample_season))
 
         img = sample_img.squeeze()
-        image = ax.imshow(img, cmap='viridis', vmin=-1, vmax=1)
+        image = ax.imshow(img, cmap='viridis')
         fig.colorbar(image, ax=ax, fraction=0.046, pad=0.04)
     
     fig.set_tight_layout(True)

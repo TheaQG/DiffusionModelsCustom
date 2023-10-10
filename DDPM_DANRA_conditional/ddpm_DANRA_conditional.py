@@ -54,12 +54,12 @@ if __name__ == '__main__':
     cache_size = n_files
     image_dim = 32#64#n_danra_size#
     image_size = (image_dim,image_dim)
-    n_seasons = 12
+    n_seasons = 366#4#12#
     loss_type = 'simple'#'hybrid'#
 
     # Define strings for use in path
     im_dim_str = str(image_dim) + 'x' + str(image_dim)
-    cond_str = 'lsm_topo__' + loss_type + '__12_months'
+    cond_str = 'lsm_topo__' + loss_type + '__' + str(n_seasons) + '_seasons'
     var_str = var
     model_str = 'DDPM_conditional'
     # Set path to save figures
@@ -119,25 +119,47 @@ if __name__ == '__main__':
     # Preprocess lsm and topography (normalize and reshape, resizes to image_size)
     PATH_LSM = '/Users/au728490/Documents/PhD_AU/Python_Scripts/Data/Data_DiffMod/data_lsm/truth_DK/lsm_dk.npz'
     PATH_TOPO = '/Users/au728490/Documents/PhD_AU/Python_Scripts/Data/Data_DiffMod/data_topo/truth_DK/topo_dk.npz'
-    lsm_tensor, topo_tensor = preprocess_lsm_topography(PATH_LSM, PATH_TOPO, image_size)
+    lsm_tensor, topo_tensor = preprocess_lsm_topography(PATH_LSM, PATH_TOPO, image_size, scale=False)#, scale=True)
     lsm_weight = 1
-    lsm_tensor = lsm_weight * lsm_tensor
+    lsm_tensor = lsm_weight * lsm_tensor#None#
     topo_weight = 1
-    topo_tensor = topo_weight * topo_tensor
+    topo_tensor = topo_weight * topo_tensor#None#
+    
+    n_plots = 0
     
     # Print shape of lsm and topography tensors
-    print(f'\n\n\nShape of lsm tensor: {lsm_tensor.shape}')
-    print(f'Shape of topography tensor: {topo_tensor.shape}\n\n')
+    if lsm_tensor is not None:
+        print(f'\n\n\nShape of lsm tensor: {lsm_tensor.shape}')
+        n_plots += 1
+    if topo_tensor is not None:
+        print(f'Shape of topography tensor: {topo_tensor.shape}\n\n')
+        n_plots += 1
     
     # Plot lsm and topography tensors
-    fig, axs = plt.subplots(1, 2, figsize=(10, 5))
-    axs[0].imshow(lsm_tensor.squeeze(), vmin=0, vmax=1, cmap='viridis')
-    axs[0].set_title(f'Land-sea mask, upscaled to {image_size[0]}x{image_size[1]}')
-    axs[1].imshow(topo_tensor.squeeze(), vmin=0, vmax=1, cmap='viridis')
-    axs[1].set_title(f'Topography, upscaled to {image_size[0]}x{image_size[1]}')
-    print(f'\n\n\nSaving lsm and topography figure...')
-    print('\n\n')
-    fig.savefig(PATH_SAMPLES + f'/ddpm_conditional__{var}_lsm_topo.png', dpi=600, bbox_inches='tight', pad_inches=0.1)
+    
+    if n_plots == 1:
+        fig, ax = plt.subplots(1, 1, figsize=(5, 5))
+        if lsm_tensor is not None:
+            ax.imshow(lsm_tensor.squeeze(), cmap='viridis')
+            ax.set_title(f'Land-sea mask, upscaled to {image_size[0]}x{image_size[1]}')
+        elif topo_tensor is not None:
+            ax.imshow(topo_tensor.squeeze(), cmap='viridis')
+            ax.set_title(f'Topography, upscaled to {image_size[0]}x{image_size[1]}')
+        fig.savefig(PATH_SAMPLES + f'/ddpm_conditional__{var}_lsm_topo.png', dpi=600, bbox_inches='tight', pad_inches=0.1)
+
+    elif n_plots == 2:
+        fig, axs = plt.subplots(1, 2, figsize=(10, 5))
+        axs[0].imshow(lsm_tensor.squeeze(), cmap='viridis')
+        axs[0].set_title(f'Land-sea mask, upscaled to {image_size[0]}x{image_size[1]}')
+        axs[1].imshow(topo_tensor.squeeze(), cmap='viridis')
+        axs[1].set_title(f'Topography, upscaled to {image_size[0]}x{image_size[1]}')
+        print(f'\n\n\nSaving lsm and topography figure...')
+        print('\n\n')
+        fig.savefig(PATH_SAMPLES + f'/ddpm_conditional__{var}_lsm_topo.png', dpi=600, bbox_inches='tight', pad_inches=0.1)
+
+    elif n_plots == 0:
+        print(f'\n\n\nNo lsm or topography tensor found...\n\n')
+        print(f'Continuing without lsm and topography tensors...\n\n')
 
     
 
@@ -302,28 +324,55 @@ if __name__ == '__main__':
 
     fig, ax = plt.subplots(n_seasons, n, figsize=(18, 10))
 
-    for season in range(n_seasons):
-        # Generate random fields of batchsize n
-        x = torch.randn(n, input_channels, *image_size).to(device)
-        # Generate season labels of batchsize n (generating n fields for each season)
-        y = torch.ones(n) * season
-        # Set season labels to device as int64
-        y = y.type(torch.int64).to(device)
+    if n_seasons < 13:
+        for season in range(n_seasons):
+            # Generate random fields of batchsize n
+            x = torch.randn(n, input_channels, *image_size).to(device)
+            # Generate season labels of batchsize n (generating n fields for each season)
+            y = torch.ones(n) * season
+            # Set season labels to device as int64
+            y = y.type(torch.int64).to(device)
 
-        # Sample generated images from model
-        generated_images = diffusion_utils.sample(x, pipeline.model, y)
-        generated_images = generated_images.detach().cpu()
+            # Sample generated images from model
+            generated_images = diffusion_utils.sample(x, pipeline.model, y)
+            generated_images = generated_images.detach().cpu()
 
-        for i in range(n):
-            img = generated_images[i].squeeze()
-            image = ax[season, i].imshow(img, cmap='viridis')
-            ax[season, i].set_title(f'Season: {y[i].item()}')
-            ax[season, i].axis('off')
-            fig.colorbar(image, ax=ax[season, i], fraction=0.046, pad=0.04)
+            for i in range(n):
+                img = generated_images[i].squeeze()
+                image = ax[season, i].imshow(img, cmap='viridis')
+                ax[season, i].set_title(f'Season: {y[i].item()}')
+                ax[season, i].axis('off')
+                fig.colorbar(image, ax=ax[season, i], fraction=0.046, pad=0.04)
+        fig.tight_layout()
+        fig.savefig(PATH_SAMPLES + '/' + NAME_FINAL_SAMPLES + '.png', dpi=600, bbox_inches='tight', pad_inches=0.1)
+        plt.show()
 
-    fig.tight_layout()
-    fig.savefig(PATH_SAMPLES + '/' + NAME_FINAL_SAMPLES + '.png', dpi=600, bbox_inches='tight', pad_inches=0.1)
-    plt.show()
+    else:
+        n_sampling = 6
+        n_seasons_random = random.randint(0, n_seasons, n_sampling)
+#        n_seasons_random = random.sample(range(n_seasons), n_sampling)
+        for season in range(n_seasons_random):
+            # Generate random fields of batchsize n
+            x = torch.randn(n, input_channels, *image_size).to(device)
+            # Generate season labels of batchsize n (generating n fields for each season)
+            y = torch.ones(n) * season
+            # Set season labels to device as int64
+            y = y.type(torch.int64).to(device)
+
+            # Sample generated images from model
+            generated_images = diffusion_utils.sample(x, pipeline.model, y)
+            generated_images = generated_images.detach().cpu()
+
+            for i in range(n):
+                img = generated_images[i].squeeze()
+                image = ax[season, i].imshow(img, cmap='viridis')
+                ax[season, i].set_title(f'Season: {y[i].item()}')
+                ax[season, i].axis('off')
+                fig.colorbar(image, ax=ax[season, i], fraction=0.046, pad=0.04)
+
+        fig.tight_layout()
+        fig.savefig(PATH_SAMPLES + '/' + NAME_FINAL_SAMPLES + '.png', dpi=600, bbox_inches='tight', pad_inches=0.1)
+        plt.show()
 
 
 

@@ -482,7 +482,7 @@ class Decoder(nn.Module):
         # Reverse the feature maps in a list, fmaps(reversed): fmap5, fmap4, fmap3, fmap2, fmap1
         fmaps = [fmap for fmap in reversed(fmaps)]
 
-        ouptut = None
+        output = None
 
         # Loop over the residual layers
         for idx, m in enumerate(self.residual_layers):

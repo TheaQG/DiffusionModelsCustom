@@ -271,10 +271,9 @@ class TrainingPipeline:
                 - verbose: whether to print training loss or not
         '''
         # Set model to train mode
-        
         self.model.train()
         # Set loss to 0
-        loss = 0
+        loss = 0.0
         
         # Loop over batches(tuple of img and seasons) in dataloader, using tqdm for progress bar
         for idx, (images, seasons) in tqdm.tqdm(enumerate(dataloader)):
@@ -334,6 +333,44 @@ class TrainingPipeline:
             print(f'Training Loss: {loss}')
 
         return loss
+    
+    def validate(self, dataloader, verbose=True):
+        # Set model to eval mode
+        self.model.eval()
+
+        # Set loss to 0
+        val_loss = 0.0
+
+        # Loop over batches(tuple of img and seasons) in dataloader, using tqdm for progress bar
+        for idx, (images, seasons) in tqdm.tqdm(enumerate(dataloader)):
+            # Set images and seasons to device
+            images = images.to(self.device)
+            seasons = seasons.to(self.device)
+
+            # Sample timesteps from diffusion utils
+            t = self.diffusion_utils.sampleTimesteps(images.shape[0])
+
+            # Sample noise from diffusion utils
+            x_t, noise = self.diffusion_utils.noiseImage(images, t)
+
+            # Set predicted noise as output from model
+            predicted_noise = self.model(x_t, t, seasons)
+
+            # Calculate loss
+            batch_loss = self.lossfunc(predicted_noise, noise)
+
+            # Add batch loss to total loss
+            val_loss += batch_loss.item()
+
+        # Calculate average loss
+        val_loss = val_loss / (idx + 1)
+
+        # Print validation loss if verbose is True
+        if verbose:
+            print(f'Validation Loss: {val_loss}')
+
+        return val_loss
+
 
 
 

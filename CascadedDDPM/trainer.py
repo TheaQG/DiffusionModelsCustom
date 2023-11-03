@@ -1,38 +1,39 @@
 import os                                                                           # For operating system operations
-import time                                                                         # 
-import copy                                                                         # 
+import time                                                                         # Time access and conversions. 
+import copy                                                                         # Safe shallow and deep copying operations
 from pathlib import Path                                                            # Object-oriented filesystem path handling.
 from math import ceil                                                               # Function for rounding up (ceiling)
 from contextlib import contextmanager, nullcontext                                  # Utilities for working with context management.
 from functools import partial, wraps                                                # Higher-order functions and operations on callable objects. 
-from collections.abc import Iterable                                                # 
+from typing import Iterable                                                         # Type checking for iterables
+#from collections.abc import Iterable                                                # It
 
 import torch                                                                        # PyTorch: A deep learning framework.
 from torch import nn                                                                # Neural network module
 import torch.nn.functional as F                                                     # Functional interface for PyTorch's neural network modules.
 from torch.utils.data import random_split, DataLoader                               # Utilities for working with batched data
 from torch.optim import Adam                                                        # Adam optimizer for training
-from lion_pytorch import Lion                                                       #
+from lion_pytorch import Lion                                                       # Lion optimizer for training - !!OBS!! - needs to be installed from source 
 from torch.optim.lr_scheduler import CosineAnnealingLR, LambdaLR                    # Learning rate schedulers
-from torch.cuda.amp import autocast, GradScaler                                     # 
+from torch.cuda.amp import autocast, GradScaler                                     # Automatic mixed precision (AMP) utilities for PyTorch with auocast for automatic casting and GradScaler for gradient scaling
 
-import pytorch_warmup as warmup                                                     #
+import pytorch_warmup as warmup                                                     # Learning rate warmup utilities for PyTorch - !!OBS!! - needs to be installed from source
 
 from imagen_pytorch import Imagen, NullUnet                                         # Main Imagen cascading DDPM model and null-unet (dummy)
 from elucidated_imagen import ElucidatedImagen                                      # Elucidated model
 from data import cycle                                                              # 
 
 from version import __version__                                                     # 
-from packaging import version                                                       #
+from packaging import version                                                       # Version comparison utilities
 
-import numpy as np                                                                  #
+import numpy as np                                                                  # NumPy: A fundamental package for scientific computing with Python.
 
-from ema_pytorch import EMA                                                         #
+from ema_pytorch import EMA                                                         # Exponential moving average (EMA) for PyTorch - !!OBS!! - needs to be installed from source
 
-from accelerate import Accelerator, DistributedType, DistributedDataParallelKwargs  #
+from accelerate import Accelerator, DistributedType, DistributedDataParallelKwargs  # Accelerate: A simple way to train your PyTorch model on multiple-GPUs, TPUs, CPUs and even in 16-bit precision. - !!OBS!! - needs to be installed from source
 
-from fsspec.core import url_to_fs                                                   #
-from fsspec.implementations.local import LocalFileSystem                            #
+from fsspec.core import url_to_fs                                                   # Filesystem specification - !!OBS!! - needs to be installed from source
+from fsspec.implementations.local import LocalFileSystem                            # Local filesystem implementation for fsspec - !!OBS!! - needs to be installed from source
 
 # helper functions
 

@@ -82,6 +82,7 @@ if __name__ == '__main__':
     SAVE_FIGS = False
     PATH_SAVE = '/Users/au728490/Documents/PhD_AU/PhD_AU_material/Figures'
     PATH_SAMPLES = PATH_SAVE + f'/Samples/Samples' + '__' + var_str + '__' + im_dim_str + '__' + cond_str 
+    PATH_LOSSES = '/Users/au728490/Documents/PhD_AU/Python_Scripts/Losses'
     if not os.path.exists(PATH_SAMPLES):
         os.makedirs(PATH_SAMPLES)
     
@@ -357,9 +358,9 @@ if __name__ == '__main__':
             ax.legend(loc='upper right')
             fig.savefig(PATH_SAMPLES + '/' + NAME_LOSSES + '.png', dpi=600, bbox_inches='tight', pad_inches=0.1)
 
-            with open('train_losses_conditional', 'wb') as fp:
+            with open(PATH_LOSSES + '/' + NAME_LOSSES + '_train', 'wb') as fp:
                 pickle.dump(train_losses, fp)
-            with open('valid_losses_conditional', 'wb') as fp:
+            with open(PATH_LOSSES + '/' + NAME_LOSSES + '_valid', 'wb') as fp:
                 pickle.dump(valid_losses, fp)
 
         # Step the learning rate scheduler

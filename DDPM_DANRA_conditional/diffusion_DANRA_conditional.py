@@ -96,7 +96,7 @@ class DiffusionUtils:
         # Return noise as defined in paper, and noise
         return (alpha_hat_sqrts * x) + (one_minus_alpha_hat_sqrt * noise), noise
     
-    def sample(self, x:torch.Tensor, model:nn.Module, y:torch.Tensor=None):
+    def sample(self, x:torch.Tensor, model:nn.Module, y:torch.Tensor=None, cond_img:torch.Tensor=None):
         '''
             Function for sampling from diffusion process.
             Input:
@@ -131,7 +131,7 @@ class DiffusionUtils:
                 if y is None:
                     predicted_noise = model(x, t)
                 else:
-                    predicted_noise = model(x, t, y)
+                    predicted_noise = model(x, t, y, cond_img)
 
                 # Sample noise from gaussian distribution or set to zero if timestep is 1
                 if i > 1:

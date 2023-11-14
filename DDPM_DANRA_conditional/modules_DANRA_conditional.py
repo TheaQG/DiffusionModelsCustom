@@ -127,7 +127,7 @@ class Encoder(ResNet):
         The encoder works as a downsample block, and will be used to downsample the input.
     '''
     def __init__(self, input_channels:int, time_embedding:int, 
-        block=BasicBlock, block_layers:list=[2, 2, 2, 2], n_heads:int=4, num_classes:int=None, lsm_tensor=None, topo_tensor=None):
+        block=BasicBlock, block_layers:list=[2, 2, 2, 2], n_heads:int=4, num_classes:int=None, lsm_tensor=None, topo_tensor=None, cond_on_img=None, cond_img_dim = None):
         '''
             Initialize the class. 
             Input:
@@ -155,7 +155,10 @@ class Encoder(ResNet):
         if topo_tensor is not None:
             self.register_buffer('elevation', topo_tensor)
             self.input_channels += 1
-        
+        print(self.input_channels)
+        if cond_on_img:
+            self.input_channels += cond_img_dim[0]
+        print(self.input_channels)
         # Initialize the sinusoidal time embedding layer with the given time_embedding
         self.sinusiodal_embedding = SinusoidalEmbedding(self.time_embedding)
         
@@ -203,7 +206,7 @@ class Encoder(ResNet):
         pos_enc = torch.cat([pos_enc_a, pos_enc_b], dim=-1)
         return pos_enc
 
-    def forward(self, x:torch.Tensor, t:torch.Tensor, y:torch.Tensor):
+    def forward(self, x:torch.Tensor, t:torch.Tensor, y:torch.Tensor, cond_img:Optional[torch.Tensor]=None):
         '''
             Forward function for the class. The input x and time embedding t are used to calculate the output.
             The output is the encoded input x.
@@ -216,6 +219,8 @@ class Encoder(ResNet):
         if hasattr(self, 'elevation'):
             x = torch.cat([x, self.elevation.repeat(x.size(0), 1, 1, 1)], dim=1)
 
+        if cond_img is not None:
+            x = torch.cat((x, cond_img), dim=1)
 
         # Embed the time positions
         t = t.unsqueeze(-1).type(torch.float)
@@ -536,7 +541,7 @@ class DiffusionNet(nn.Module):
         Class for the diffusion net. The diffusion net is used to encode and decode the input.
         The diffusion net is a UNET with self-attention layers, and will be used for downscaling in the DDPM.
     '''
-    def __init__(self, encoder:Encoder, decoder:Decoder, lsm_tensor=None, topo_tensor=None):
+    def __init__(self, encoder:Encoder, decoder:Decoder, lsm_tensor=None, topo_tensor=None, cond_on_img=None, cond_img_dim = None):
         '''
             Initialize the class.
             Input:
@@ -550,7 +555,7 @@ class DiffusionNet(nn.Module):
         self.encoder = encoder
         self.decoder = decoder
     
-    def forward(self, x:torch.Tensor, t:torch.Tensor, y:torch.Tensor):
+    def forward(self, x:torch.Tensor, t:torch.Tensor, y:torch.Tensor, cond_img:Optional[torch.Tensor]=None):
         '''
             Forward function for the class.
             Input:
@@ -559,7 +564,7 @@ class DiffusionNet(nn.Module):
                 - y: label tensor
         '''
         # Encode the input x
-        enc_fmaps = self.encoder(x, t=t, y=y)
+        enc_fmaps = self.encoder(x, t=t, y=y, cond_img=cond_img)
         # Decode the encoded input, using the encoded feature maps
         segmentation_mask = self.decoder(*enc_fmaps, t=t)
         return segmentation_mask

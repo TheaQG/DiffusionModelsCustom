@@ -282,6 +282,23 @@ class TrainingPipeline:
             self.model.zero_grad()
             # Set images and seasons to device
             images = images.to(self.device)
+            
+            from einops import rearrange
+            images_re = rearrange(images, 'b c h w -> b c (h w)')
+            ave_images = torch.mean(images_re, dim=2)
+            
+            cond_images = torch.ones_like(images)
+
+            for n in range(len(images)):
+                for c in range(len(images[n])):
+                    cond_images[n,c,:,:] = ave_images[n,c]
+
+            # print((cond_images[0,0,:,:]).shape)
+            # print(cond_images[0,0,:,:])
+            # print(cond_images.shape)
+
+#            images = torch.cat((cond_images, images), dim=1)
+
             seasons = seasons.to(self.device)
             
             if PLOT_FIRST:
@@ -313,7 +330,7 @@ class TrainingPipeline:
             x_t, noise = self.diffusion_utils.noiseImage(images, t)
 
             # Set predicted noise as output from model
-            predicted_noise = self.model(x_t, t, seasons)
+            predicted_noise = self.model(x_t, t, seasons, cond_images)
 
             # Calculate loss
             batch_loss = self.lossfunc(predicted_noise, noise)
@@ -347,6 +364,16 @@ class TrainingPipeline:
             images = images.to(self.device)
             seasons = seasons.to(self.device)
 
+            from einops import rearrange
+            images_re = rearrange(images, 'b c h w -> b c (h w)')
+            ave_images = torch.mean(images_re, dim=2)
+            
+            cond_images = torch.ones_like(images)
+
+            for n in range(len(images)):
+                for c in range(len(images[n])):
+                    cond_images[n,c,:,:] = ave_images[n,c]
+
             # Sample timesteps from diffusion utils
             t = self.diffusion_utils.sampleTimesteps(images.shape[0])
 
@@ -354,7 +381,7 @@ class TrainingPipeline:
             x_t, noise = self.diffusion_utils.noiseImage(images, t)
 
             # Set predicted noise as output from model
-            predicted_noise = self.model(x_t, t, seasons)
+            predicted_noise = self.model(x_t, t, seasons, cond_images)
 
             # Calculate loss
             batch_loss = self.lossfunc(predicted_noise, noise)

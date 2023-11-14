@@ -2950,7 +2950,7 @@ class Unet(nn.Module):
         assert not (self.lowres_cond and not exists(lowres_cond_img)), 'low resolution conditioning image must be present'
         assert not (self.lowres_cond and not exists(lowres_noise_times)), 'low resolution conditioning noise time must be present'
 
-        # If it exists, concatenate the low resolution conditioning image to the input
+        # If it exists, concatenate the low resolution conditioning image to the input, along the channel dimension
         if exists(lowres_cond_img):
             x = torch.cat((x, lowres_cond_img), dim = 1)
 
@@ -2962,7 +2962,7 @@ class Unet(nn.Module):
         if exists(cond_images):
             # Check if the number of channels in the conditioning image matches the number of channels specified in the model
             assert cond_images.shape[1] == self.cond_images_channels, 'the number of channels on the conditioning image you are passing in does not match what you specified on initialiation of the unet'
-            # Resize the conditioning image to the same size as the input image
+            # Resize (interpolate) the conditioning image to the same size as the input image
             cond_images = resize_image_to(cond_images, x.shape[-1], mode = self.resize_mode)
             # Concatenate the conditioning image to the input
             x = torch.cat((cond_images, x), dim = 1)

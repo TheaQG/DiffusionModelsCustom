@@ -75,9 +75,9 @@ if __name__ == '__main__':
 
     # Define strings for use in path
     im_dim_str = str(image_dim) + 'x' + str(image_dim)
-    cond_str = 'lsm_topo__' + loss_type + '__' + str(n_seasons) + '_seasons' + '_wValid_600Epochs_batch32'
+    cond_str = 'lsm_topo__' + loss_type + '__' + str(n_seasons) + '_seasons' + '_TEST'
     var_str = var
-    model_str = 'DDPM_conditional_wValid_600Epochs_batch32'
+    model_str = 'DDPM_conditional_TEST'
     # Set path to save figures
     SAVE_FIGS = False
     PATH_SAVE = '/Users/au728490/Documents/PhD_AU/PhD_AU_material/Figures'
@@ -206,8 +206,18 @@ if __name__ == '__main__':
     torch.backends.cudnn.benchmark = True
 
     # Define the encoder and decoder from modules_DANRA_downscaling.py
-    encoder = Encoder(input_channels, time_embedding, lsm_tensor=lsm_tensor, topo_tensor=topo_tensor, block_layers=[2, 2, 2, 2], num_classes=n_seasons)
-    decoder = Decoder(last_fmap_channels, output_channels, time_embedding, first_fmap_channels)
+    encoder = Encoder(input_channels, 
+                      time_embedding, 
+                      lsm_tensor=lsm_tensor, 
+                      topo_tensor=topo_tensor, 
+                      cond_on_img=True, 
+                      cond_img_dim=(1, 32, 32), 
+                      block_layers=[2, 2, 2, 2], 
+                      num_classes=n_seasons)
+    decoder = Decoder(last_fmap_channels, 
+                      output_channels, 
+                      time_embedding, 
+                      first_fmap_channels)
     # Define the model from modules_DANRA_downscaling.py
     model = DiffusionNet(encoder, decoder)
     # Define the diffusion utils from diffusion_DANRA_downscaling.py
@@ -250,6 +260,7 @@ if __name__ == '__main__':
         test_input = torch.randn(n_samples, input_channels, *image_size).to(device)
         t_test = torch.randint(0, time_embedding, (n_samples,)).to(device)#torch.Tensor([1, 5, 7, 11]).to(device)#
         y_test = torch.randint(0, n_seasons, (n_samples, ))#torch.zeros(n_samples)
+        cond_img = torch.randn(n_samples, 1, 32, 32).to(device)
         #idx_test = np.random.randint(0, n_seasons)
         #y_test[idx_test] = 1
         y_test = y_test.type(torch.int64).to(device)
@@ -257,7 +268,7 @@ if __name__ == '__main__':
         print(f'Input shape of test: {test_input.shape}')
         print(f'Shape of time embedding: {t_test.shape}')
         print(f'Shape of season embedding: {y_test.shape}')
-        test = pipeline.model(test_input, t_test, y_test)
+        test = pipeline.model(test_input, t_test, y_test, cond_img=cond_img)
 
         
         print(f'Output shape of test: {test.shape}')
@@ -329,8 +340,21 @@ if __name__ == '__main__':
             # Generate random season labels of batchsize n
             y = torch.randint(0, n_seasons, (n,)).to(device) # 4 seasons, 0-3
 
+            cond_imgs = torch.ones(n, 1, 32, 32).to(device)
+
+            for idx in range(n):
+                if y[idx] == 0:
+                    r = random.randrange(2,16)
+                elif y[idx] == 1:
+                    r = random.randrange(12,21)
+                elif y[idx] == 2:
+                    r = random.randrange(5,15)
+                elif y[idx] == 3:
+                    r = random.randrange(-5,8)
+                cond_imgs[idx] = torch.ones(1, 32, 32).to(device) * r
+            
             # Sample generated images from model
-            generated_images = diffusion_utils.sample(x, pipeline.model, y)
+            generated_images = diffusion_utils.sample(x, pipeline.model, y, cond_imgs)
             generated_images = generated_images.detach().cpu()
 
             # Plot generated images

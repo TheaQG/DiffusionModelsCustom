@@ -43,8 +43,9 @@ Contains:
 - Gaussian diffusion with continuous time helper functions and classes
     - beta_linear_log_snr: Computes the log of the signal-to-noise ratio (SNR) using a linear beta schedule
     - alpha_cosine_log_snr: Computes the log of the signal-to-noise ratio (SNR) using a cosine beta schedule
+    - log_snr_to_alpha_sigma: Transforms a logarithm of SNR value into two values, alpha and sigma, using the sigmoid function
 
-
+- 
 
 '''
 import math # Standard Python module for mathematical operations.

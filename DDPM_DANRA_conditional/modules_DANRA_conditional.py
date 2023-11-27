@@ -206,7 +206,14 @@ class Encoder(ResNet):
         pos_enc = torch.cat([pos_enc_a, pos_enc_b], dim=-1)
         return pos_enc
 
-    def forward(self, x:torch.Tensor, t:torch.Tensor, y:torch.Tensor, cond_img:Optional[torch.Tensor]=None):
+    def forward(self, 
+                x:torch.Tensor, 
+                t:torch.Tensor, 
+                y:torch.Tensor, 
+                cond_img:Optional[torch.Tensor]=None, 
+                lsm_cond:Optional[torch.Tensor]=None, 
+                topo_cond:Optional[torch.Tensor]=None
+                ):
         '''
             Forward function for the class. The input x and time embedding t are used to calculate the output.
             The output is the encoded input x.
@@ -215,9 +222,13 @@ class Encoder(ResNet):
                 - t: time embedding tensor
         '''
         if hasattr(self, 'lsm'):
-            x = torch.cat([x, self.lsm.repeat(x.size(0), 1, 1, 1)], dim=1)
+            lsm_cond = lsm_cond#.unsqueeze(0).unsqueeze(0)
+            x = torch.cat([x, lsm_cond], dim=1)
+            #x = torch.cat([x, self.lsm.repeat(x.size(0), 1, 1, 1)], dim=1)
         if hasattr(self, 'elevation'):
-            x = torch.cat([x, self.elevation.repeat(x.size(0), 1, 1, 1)], dim=1)
+            topo_cond = topo_cond#.unsqueeze(0).unsqueeze(0)
+            x = torch.cat([x, topo_cond], dim=1)
+            #x = torch.cat([x, self.elevation.repeat(x.size(0), 1, 1, 1)], dim=1)
 
         if cond_img is not None:
             x = torch.cat((x, cond_img), dim=1)
@@ -555,7 +566,7 @@ class DiffusionNet(nn.Module):
         self.encoder = encoder
         self.decoder = decoder
     
-    def forward(self, x:torch.Tensor, t:torch.Tensor, y:torch.Tensor, cond_img:Optional[torch.Tensor]=None):
+    def forward(self, x:torch.Tensor, t:torch.Tensor, y:torch.Tensor, cond_img:Optional[torch.Tensor]=None, lsm_cond:Optional[torch.Tensor]=None, topo_cond:Optional[torch.Tensor]=None):
         '''
             Forward function for the class.
             Input:
@@ -564,7 +575,7 @@ class DiffusionNet(nn.Module):
                 - y: label tensor
         '''
         # Encode the input x
-        enc_fmaps = self.encoder(x, t=t, y=y, cond_img=cond_img)
+        enc_fmaps = self.encoder(x, t=t, y=y, cond_img=cond_img, lsm_cond=lsm_cond, topo_cond=topo_cond)
         # Decode the encoded input, using the encoded feature maps
         segmentation_mask = self.decoder(*enc_fmaps, t=t)
         return segmentation_mask

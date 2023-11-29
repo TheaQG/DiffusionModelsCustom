@@ -136,7 +136,7 @@ class TrainingPipeline_Hybrid:
                 for im, season, ax in zip(images_samples, seasons_samples, ax.flatten()):
                     image = ax.imshow(im.permute(1,2,0).cpu().detach().numpy())
                     ax.set_title(f'Season: {season.item()}')
-                    ax.axis('off')
+                    #ax.axis('off')
                     fig.colorbar(image, ax=ax, fraction=0.046, pad=0.04)
                 
                 fig.tight_layout()
@@ -312,7 +312,7 @@ class TrainingPipeline:
                 for im, season, ax in zip(images_samples, seasons_samples, ax.flatten()):
                     image = ax.imshow(im.permute(1,2,0).cpu().detach().numpy())
                     ax.set_title(f'Season: {season.item()}')
-                    ax.axis('off')
+                    #ax.axis('off')
                     ax.set_ylim([0, im.shape[1]])
                     fig.colorbar(image, ax=ax, fraction=0.046, pad=0.04)
                 
@@ -532,7 +532,7 @@ class TrainingPipeline_new:
                 for im, season, ax in zip(images_samples, seasons_samples, axs.flatten()):
                     image = ax.imshow(im.permute(1,2,0).cpu().detach().numpy())
                     ax.set_title(f'Season: {season.item()}')
-                    ax.axis('off')
+                    #ax.axis('off')
                     ax.set_ylim([0, im.shape[1]])
                     fig.colorbar(image, ax=ax, fraction=0.046, pad=0.04)
                 fig.tight_layout()
@@ -542,7 +542,7 @@ class TrainingPipeline_new:
                 for cond_im, season, ax in zip(cond_images_samples, seasons_samples, ax2s.flatten()):
                     image = ax.imshow(cond_im.permute(1,2,0).cpu().detach().numpy(), vmin = -10, vmax = 30)
                     ax.set_title(f'Season: {season.item()}')
-                    ax.axis('off')
+                    #ax.axis('off')
                     ax.set_ylim([0, cond_im.shape[1]])
                     fig2.colorbar(image, ax=ax, fraction=0.046, pad=0.04)
                 fig2.tight_layout()

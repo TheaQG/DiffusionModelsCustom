@@ -42,7 +42,7 @@ def find_rand_points(rect, crop_dim):
 
 if __name__ == '__main__':
 
-    SHOW_FIGS = True
+    SHOW_FIGS = False
     SAVE_FIGS = False
     # Set DANRA variable for use
     var = 'temp'#'prcp'#

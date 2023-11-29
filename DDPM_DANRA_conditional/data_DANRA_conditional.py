@@ -16,7 +16,7 @@ import netCDF4 as nc
 from multiprocessing import freeze_support
 
 
-def preprocess_lsm_topography(lsm_path, topo_path, target_size, scale=True):
+def preprocess_lsm_topography(lsm_path, topo_path, target_size, scale=False, flip=False):
     '''
         Preprocess the lsm and topography data.
         Function loads the data, converts it to tensors, normalizes the topography data to [0, 1] interval,
@@ -27,10 +27,16 @@ def preprocess_lsm_topography(lsm_path, topo_path, target_size, scale=True):
             - topo_path: path to topography data
             - target_size: tuple containing the target size of the data
     '''
-    # 1. Load the Data
-    lsm_data = np.load(lsm_path)['data']
-    topo_data = np.load(topo_path)['data']
-    
+    # 1. Load the Data and flip upside down if flip=True
+    if flip:
+        lsm_data = np.flipud(np.load(lsm_path)['data']).copy() # Copy to avoid negative strides
+        topo_data = np.flipud(np.load(topo_path)['data']).copy() # Copy to avoid negative strides
+        
+    else:
+        lsm_data = np.load(lsm_path)['data']
+        topo_data = np.load(topo_path)['data']
+    print(lsm_data.shape)
+
     # 2. Convert to Tensors
     lsm_tensor = torch.tensor(lsm_data).float().unsqueeze(0)  # Add channel dimension
     topo_tensor = torch.tensor(topo_data).float().unsqueeze(0)

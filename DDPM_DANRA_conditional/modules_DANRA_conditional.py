@@ -155,10 +155,9 @@ class Encoder(ResNet):
         if topo_tensor is not None:
             self.register_buffer('elevation', topo_tensor)
             self.input_channels += 1
-        print(self.input_channels)
         if cond_on_img:
             self.input_channels += cond_img_dim[0]
-        print(self.input_channels)
+        
         # Initialize the sinusoidal time embedding layer with the given time_embedding
         self.sinusiodal_embedding = SinusoidalEmbedding(self.time_embedding)
         

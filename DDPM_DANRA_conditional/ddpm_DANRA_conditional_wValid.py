@@ -78,7 +78,7 @@ if __name__ == '__main__':
 
     n_samples_valid = n_files_valid
     cache_size_valid = n_files_valid
-    image_dim = 32#64#n_danra_size#
+    image_dim = 64#64#n_danra_size#
     image_size = (image_dim,image_dim)
     n_seasons = 4#12#366#
     loss_type = 'simple'#'hybrid'#
@@ -150,12 +150,12 @@ if __name__ == '__main__':
     PATH_LSM = '/Users/au728490/Documents/PhD_AU/Python_Scripts/Data/Data_DiffMod/data_lsm/truth_DK/lsm_dk.npz'
     PATH_TOPO = '/Users/au728490/Documents/PhD_AU/Python_Scripts/Data/Data_DiffMod/data_topo/truth_DK/topo_dk.npz'
     
-    lsm_tensor, topo_tensor = preprocess_lsm_topography(PATH_LSM, PATH_TOPO, image_size, scale=False)#, scale=True)
+    lsm_tensor, topo_tensor = preprocess_lsm_topography(PATH_LSM, PATH_TOPO, image_size, scale=False, flip=True)#, scale=True)
     lsm_weight = 1
     lsm_tensor = lsm_weight * lsm_tensor#None#
     topo_weight = 1
     topo_tensor = topo_weight * topo_tensor#None#
-    
+    print(topo_tensor.shape)
     n_plots = 0
     
     # Print shape of lsm and topography tensors
@@ -171,19 +171,29 @@ if __name__ == '__main__':
     if n_plots == 1:
         fig, ax = plt.subplots(1, 1, figsize=(5, 5))
         if lsm_tensor is not None:
-            ax.imshow(lsm_tensor.squeeze(), cmap='viridis')
+            im_lsm = ax.imshow(lsm_tensor.squeeze(), cmap='viridis')
             ax.set_title(f'Land-sea mask, upscaled to {image_size[0]}x{image_size[1]}')
+            ax.set_ylim(ax.get_ylim()[::-1])
+            fig.colorbar(im_lsm, ax=ax, fraction=0.046, pad=0.04)
         elif topo_tensor is not None:
-            ax.imshow(topo_tensor.squeeze(), cmap='viridis')
+            im_topo = ax.imshow(topo_tensor.squeeze(), cmap='viridis')
             ax.set_title(f'Topography, upscaled to {image_size[0]}x{image_size[1]}')
+            ax.set_ylim(ax.get_ylim()[::-1])
+            fig.colorbar(im_topo, ax=ax, fraction=0.046, pad=0.04)
         fig.savefig(PATH_SAMPLES + f'/ddpm_conditional__{var}_lsm_topo.png', dpi=600, bbox_inches='tight', pad_inches=0.1)
 
     elif n_plots == 2:
         fig, axs = plt.subplots(1, 2, figsize=(10, 5))
-        axs[0].imshow(lsm_tensor.squeeze(), cmap='viridis')
+        im_lsm = axs[0].imshow(lsm_tensor.squeeze(), cmap='viridis')
         axs[0].set_title(f'Land-sea mask, upscaled to {image_size[0]}x{image_size[1]}')
-        axs[1].imshow(topo_tensor.squeeze(), cmap='viridis')
+        axs[0].set_ylim(axs[0].get_ylim()[::-1])
+        fig.colorbar(im_lsm, ax=axs[0], fraction=0.046, pad=0.04)
+
+        im_topo = axs[1].imshow(topo_tensor.squeeze(), cmap='viridis')
         axs[1].set_title(f'Topography, upscaled to {image_size[0]}x{image_size[1]}')
+        axs[1].set_ylim(axs[1].get_ylim()[::-1])
+        fig.colorbar(im_topo, ax=axs[1], fraction=0.046, pad=0.04)
+        
         print(f'\n\n\nSaving lsm and topography figure...')
         print('\n\n')
         fig.savefig(PATH_SAMPLES + f'/ddpm_conditional__{var}_lsm_topo.png', dpi=600, bbox_inches='tight', pad_inches=0.1)
@@ -200,6 +210,7 @@ if __name__ == '__main__':
 
     data_lsm_full = np.flipud(np.load(PATH_LSM_FULL)['data'])
     data_topo_full = np.flipud(np.load(PATH_TOPO_FULL)['data'])
+
 
     # Define the dataset from data_DANRA_downscaling.py
     #train_dataset = DANRA_Dataset(data_dir_danra_train, image_size, n_samples_train, cache_size_train, scale=False, shuffle=False, conditional=True, n_classes=n_seasons)
@@ -372,8 +383,8 @@ if __name__ == '__main__':
         if train_loss < best_loss:
             best_loss = train_loss
             pipeline.save_model(checkpoint_dir, checkpoint_name)
-            print(f'Model saved at epoch {epoch+1} with validation loss {valid_loss:.6f}')
-            print(f'Training loss: {train_loss:.6f}')
+            print(f'Model saved at epoch {epoch+1} with training loss {train_loss:.6f}')
+            print(f'Validation loss: {valid_loss:.6f}')
             print(f'Saved to {checkpoint_dir} with name {checkpoint_name}')
 
 
@@ -417,7 +428,7 @@ if __name__ == '__main__':
             fig, axs = plt.subplots(1, n, figsize=(8,3))
 
             for i in range(n):
-                axs[i].set_ylim([0, image_size[0]])
+                #axs[i].set_ylim([0, image_size[0]])
                 img = generated_images[i].squeeze()
                 season = y[i].item()
                 image = axs[i].imshow(img, cmap='viridis')

@@ -405,7 +405,12 @@ def find_rand_points(rect, crop_dim):
 
 class DANRA_Dataset_cutouts(Dataset):
     '''
-    
+        Class for setting the DANRA dataset with option for random cutouts from specified domains.
+        Along with DANRA data, the land-sea mask and topography data is also loaded at same cutout.
+        Possibility to sample more than n_samples if cutouts are used.
+        Option to shuffle data or load sequentially.
+        Option to scale data to new interval.
+        Option to use conditional (classifier) sampling (season, month or day).
     '''
     def __init__(self, 
                 data_dir:str,                       # Path to data
@@ -618,7 +623,12 @@ class DANRA_Dataset_cutouts(Dataset):
 
 class DANRA_Dataset_cutouts_ERA5(Dataset):
     '''
-    
+        Class for setting the DANRA dataset with option for random cutouts from specified domains.
+        Along with DANRA data, the land-sea mask and topography data is also loaded at same cutout.
+        Possibility to sample more than n_samples if cutouts are used.
+        Option to shuffle data or load sequentially.
+        Option to scale data to new interval.
+        Option to use conditional (classifier) sampling (season, month or day).
     '''
     def __init__(self, 
                 data_dir:str,                       # Path to data
@@ -808,8 +818,9 @@ class DANRA_Dataset_cutouts_ERA5(Dataset):
         with nc.Dataset(file_path) as data:
             img = data['t'][0,0,:,:] - 273.15
         
-        with nc.Dataset(file_path_cond) as data:
-            img_cond = data['t'][0,0,:,:] - 273.15 # ???????????????????????
+        with np.load(file_path_cond) as data:
+            img_cond = data['arr_0'][:,:] - 273.15
+#            [0,0,:,:] - 273.15 # ???????????????????????
 
         if self.cutouts:
             # Get random point
@@ -828,15 +839,15 @@ class DANRA_Dataset_cutouts_ERA5(Dataset):
             img = self.transforms(img)
 
             if self.cutouts:
-                lsm_use = self.transforms(lsm_use)
-                topo_use = self.transforms(topo_use)
+                lsm_use = self.transforms(lsm_use.copy())
+                topo_use = self.transforms(topo_use.copy())
 
             if self.conditional:
                 img_cond = self.transforms(img_cond)
 
         if self.conditional:
             # Return sample image and classifier
-            sample = (img, classifier, cond_img)
+            sample = (img, classifier, img_cond)
         else:
             # Return sample image
             sample = (img)
@@ -877,6 +888,7 @@ if __name__ == '__main__':
     # Set paths to data
     data_dir_danra = '/Users/au728490/Documents/PhD_AU/Python_Scripts/Data/Data_DiffMod/data_DANRA/size_' + danra_size_str + '/' + var + '_' + danra_size_str
     data_dir_danra_w_cutouts = '/Users/au728490/Documents/PhD_AU/Python_Scripts/Data/Data_DiffMod/data_DANRA/size_589x789_full/' + var + '_589x789'
+    data_dir_era5 = '/Users/au728490/Documents/PhD_AU/Python_Scripts/Data/Data_DiffMod/data_ERA5/size_589x789/' + var + '_589x789'
 
     data_dir_lsm = '/Users/au728490/Documents/PhD_AU/Python_Scripts/Data/Data_DiffMod/data_lsm/truth_fullDomain/lsm_full.npz'
     data_dir_topo = '/Users/au728490/Documents/PhD_AU/Python_Scripts/Data/Data_DiffMod/data_topo/truth_fullDomain/topo_full.npz'
@@ -900,7 +912,7 @@ if __name__ == '__main__':
     # Initialize dataset
 
     #dataset = DANRA_Dataset(data_dir_danra, image_size, n_samples, cache_size, scale=False, conditional=True, n_classes=12)
-    dataset = DANRA_Dataset_cutouts(data_dir_danra_w_cutouts, 
+    dataset = DANRA_Dataset_cutouts_ERA5(data_dir_danra_w_cutouts, 
                                     image_size, 
                                     n_samples, 
                                     cache_size, 
@@ -911,13 +923,14 @@ if __name__ == '__main__':
                                     lsm_full_domain = data_lsm,
                                     topo_full_domain = data_topo,
                                     scale=False, 
-                                    conditional=True, 
+                                    conditional=True,
+                                    data_dir_cond = data_dir_era5,
                                     n_classes=12
                                     )
 
     # Get sample images
     
-    n_samples = 4
+    n_samples = 6
     idxs = random.sample(range(0, len(dataset)), n_samples)
     
     # Plot sample image with colorbar
@@ -926,8 +939,16 @@ if __name__ == '__main__':
     fig3, axs3 = plt.subplots(1, n_samples, figsize=(15, 4))
 
     for idx, ax in enumerate(axs.flatten()):
-        (sample_img, sample_season), (sample_lsm, sample_topo, sample_point) = dataset[idx]
-        
+        #(sample_img, sample_season, sample_cond), (sample_lsm, sample_topo, sample_point) = dataset[idx]
+        data = dataset[idx]
+
+        i = 0
+        for d in data:
+            print(i)
+            print(d)
+            i += 1
+        print(data)
+
         axs2.flatten()[idx].imshow(sample_topo)#data_topo[sample_point[0]:sample_point[1], sample_point[2]:sample_point[3]])
         axs2.flatten()[idx].set_title('Topography')
         axs2.flatten()[idx].set_ylim([0, n_danra_size])

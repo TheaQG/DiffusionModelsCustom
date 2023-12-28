@@ -687,6 +687,7 @@ class DANRA_Dataset_cutouts_ERA5(Dataset):
             self.files_cond = sorted(os.listdir(self.data_dir_cond))
             if '.DS_Store' in self.files_cond:
                 self.files_cond.remove('.DS_Store')
+            
 
         # Sample n_samples from files, either randomly or sequentially
         if self.cutouts == False:
@@ -886,17 +887,16 @@ if __name__ == '__main__':
     danra_size_str = str(n_danra_size) + 'x' + str(n_danra_size)
 
     # Set paths to data
-    data_dir_danra = '/Users/au728490/Documents/PhD_AU/Python_Scripts/Data/Data_DiffMod/data_DANRA/size_' + danra_size_str + '/' + var + '_' + danra_size_str
-    data_dir_danra_w_cutouts = '/Users/au728490/Documents/PhD_AU/Python_Scripts/Data/Data_DiffMod/data_DANRA/size_589x789_full/' + var + '_589x789'
-    data_dir_era5 = '/Users/au728490/Documents/PhD_AU/Python_Scripts/Data/Data_DiffMod/data_ERA5/size_589x789/' + var + '_589x789'
+    data_dir_danra_w_cutouts = '/scratch/project_465000568/data_DANRA/size_589x789_full/' + var + '_589x789'
+    data_dir_era5 = '/scratch/project_465000568/data_ERA5/size_589x789/' + var + '_589x789'
 
-    data_dir_lsm = '/Users/au728490/Documents/PhD_AU/Python_Scripts/Data/Data_DiffMod/data_lsm/truth_fullDomain/lsm_full.npz'
-    data_dir_topo = '/Users/au728490/Documents/PhD_AU/Python_Scripts/Data/Data_DiffMod/data_topo/truth_fullDomain/topo_full.npz'
+    data_dir_lsm = '/scratch/project_465000568/data_lsm/truth_fullDomain/lsm_full.npz'
+    data_dir_topo = '/scratch/project_465000568/data_topo/truth_fullDomain/topo_full.npz'
 
 
     # Set path to save figures
     SAVE_FIGS = False
-    PATH_SAVE = '/Users/au728490/Documents/PhD_AU/PhD_AU_material/Figures'
+    PATH_SAVE = '/scratch/project_465000568/DDPM_ouput/Figures'
 
     # Set number of samples and cache size
     n_samples = 365
@@ -981,7 +981,7 @@ if __name__ == '__main__':
     fig2.set_tight_layout(True)
     fig3.set_tight_layout(True)
     fig4.set_tight_layout(True)
-    plt.show()
+    #plt.show()
 
 
 

@@ -51,16 +51,15 @@ if __name__ == '__main__':
     n_danra_size = 128# 256#
     # Set DANRA size string for use in path
     danra_size_str = '589x789'#str(n_danra_size) + 'x' + str(n_danra_size)
-    # Set paths to data
-    data_dir_danra_full = '/Users/au728490/Documents/PhD_AU/Python_Scripts/Data/Data_DiffMod/data_DANRA/size_' + danra_size_str + '/' + var + '_' + danra_size_str
-    data_dir_danra_train = '/Users/au728490/Documents/PhD_AU/Python_Scripts/Data/Data_DiffMod/data_DANRA/size_' + danra_size_str + '/' + var + '_' + danra_size_str + '_train'
-    data_dir_danra_valid = '/Users/au728490/Documents/PhD_AU/Python_Scripts/Data/Data_DiffMod/data_DANRA/size_' + danra_size_str + '/' + var + '_' + danra_size_str + '_valid'
-    data_dir_danra_train_w_cutouts = '/Users/au728490/Documents/PhD_AU/Python_Scripts/Data/Data_DiffMod/data_DANRA/size_' + danra_size_str + '_full/' + var + '_' + danra_size_str + '_train'
-    data_dir_danra_valid_w_cutouts = '/Users/au728490/Documents/PhD_AU/Python_Scripts/Data/Data_DiffMod/data_DANRA/size_' + danra_size_str + '_full/' + var + '_' + danra_size_str + '_valid'
     
-    data_dir_era5_train = '/Users/au728490/Documents/PhD_AU/Python_Scripts/Data/Data_DiffMod/data_ERA5/size_589x789/' + var + '_589x789_train'
-    data_dir_era5_valid = '/Users/au728490/Documents/PhD_AU/Python_Scripts/Data/Data_DiffMod/data_ERA5/size_589x789/' + var + '_589x789_valid'
+    # Set paths to data
+    data_dir_danra_train_w_cutouts = '/scratch/project_465000568/data_DANRA/size_' + danra_size_str + '_full/' + var + '_' + danra_size_str + '_train'
+    data_dir_danra_valid_w_cutouts = '/scratch/project_465000568/data_DANRA/size_' + danra_size_str + '_full/' + var + '_' + danra_size_str + '_valid'
+    
+    data_dir_era5_train = '/scratch/project_465000568/data_ERA5/size_' + danra_size_str + '/' + var + '_' + danra_size_str + '_train'
+    data_dir_era5_valid = '/scratch/project_465000568/data_ERA5/size_' + danra_size_str + '/' + var + '_' + danra_size_str + '_valid'
 
+    
     n_files_train = 0
     for root, _, files in os.walk(data_dir_danra_train_w_cutouts):
         for name in files:
@@ -81,7 +80,7 @@ if __name__ == '__main__':
 
     n_samples_valid = n_files_valid
     cache_size_valid = n_files_valid
-    image_dim = 32#64#64#n_danra_size#
+    image_dim = n_danra_size#32#64#64#n_danra_size#
     image_size = (image_dim,image_dim)
     n_seasons = 4#12#366#
     loss_type = 'simple'#'hybrid'#
@@ -96,9 +95,9 @@ if __name__ == '__main__':
     model_str = 'DDPM_conditional_ERA5'
     # Set path to save figures
     SAVE_FIGS = False
-    PATH_SAVE = '/Users/au728490/Documents/PhD_AU/PhD_AU_material/Figures'
+    PATH_SAVE = '/scratch/project_465000568/DDPM_ouput/Figures'
     PATH_SAMPLES = PATH_SAVE + f'/Samples/Samples' + '__' + var_str + '__' + im_dim_str + '__' + cond_str 
-    PATH_LOSSES = '/Users/au728490/Documents/PhD_AU/Python_Scripts/Losses'
+    PATH_LOSSES = '/scratch/project_465000568/DDPM_ouput/Losses'
     if not os.path.exists(PATH_SAMPLES):
         os.makedirs(PATH_SAMPLES)
     
@@ -108,7 +107,7 @@ if __name__ == '__main__':
 
 
     # Define the path to the pretrained model 
-    PATH_CHECKPOINT = '/Users/au728490/Documents/PhD_AU/Python_Scripts/ModelCheckpoints/DDPM_DANRA/'
+    PATH_CHECKPOINT = '/scratch/project_465000568/DDPM_ouput/ModelCheckpoints/DDPM_DANRA'
     try:
         os.makedirs(PATH_CHECKPOINT)
         print('\n\n\nCreating directory for saving checkpoints...')
@@ -150,8 +149,8 @@ if __name__ == '__main__':
     beta_scheduler = 'linear'
 
     # Preprocess lsm and topography (normalize and reshape, resizes to image_size)
-    PATH_LSM = '/Users/au728490/Documents/PhD_AU/Python_Scripts/Data/Data_DiffMod/data_lsm/truth_DK/lsm_dk.npz'
-    PATH_TOPO = '/Users/au728490/Documents/PhD_AU/Python_Scripts/Data/Data_DiffMod/data_topo/truth_DK/topo_dk.npz'
+    PATH_LSM = '/scratch/project_465000568/data_lsm/truth_DK/lsm_dk.npz'
+    PATH_TOPO = '/scratch/project_465000568/data_topo/truth_DK/topo_dk.npz'
     
     lsm_tensor, topo_tensor = preprocess_lsm_topography(PATH_LSM, PATH_TOPO, image_size, scale=False, flip=True)#, scale=True)
     lsm_weight = 1
@@ -208,8 +207,8 @@ if __name__ == '__main__':
     CUTOUTS = True
     CUTOUT_DOMAINS = [170, 170+180, 340, 340+180]
     
-    PATH_LSM_FULL = '/Users/au728490/Documents/PhD_AU/Python_Scripts/Data/Data_DiffMod/data_lsm/truth_fullDomain/lsm_full.npz'
-    PATH_TOPO_FULL = '/Users/au728490/Documents/PhD_AU/Python_Scripts/Data/Data_DiffMod/data_topo/truth_fullDomain/topo_full.npz'
+    PATH_LSM_FULL = '/scratch/project_465000568/data_lsm/truth_fullDomain/lsm_full.npz'
+    PATH_TOPO_FULL = '/scratch/project_465000568/data_topo/truth_fullDomain/topo_full.npz'
 
     data_lsm_full = np.flipud(np.load(PATH_LSM_FULL)['data'])
     data_topo_full = np.flipud(np.load(PATH_TOPO_FULL)['data'])
@@ -499,7 +498,8 @@ if __name__ == '__main__':
                 fig.colorbar(image, ax=ax[season, i], fraction=0.046, pad=0.04)
         fig.tight_layout()
         fig.savefig(PATH_SAMPLES + '/' + NAME_FINAL_SAMPLES + '.png', dpi=600, bbox_inches='tight', pad_inches=0.1)
-        plt.show()
+        fig.close()
+#        plt.show()
 
     else:
         n_sampling = 6
@@ -526,7 +526,8 @@ if __name__ == '__main__':
 
         fig.tight_layout()
         fig.savefig(PATH_SAMPLES + '/' + NAME_FINAL_SAMPLES + '.png', dpi=600, bbox_inches='tight', pad_inches=0.1)
-        plt.show()
+        fig.close()
+        #plt.show()
 
 
 

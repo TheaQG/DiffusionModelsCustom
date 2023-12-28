@@ -140,7 +140,7 @@ class TrainingPipeline_Hybrid:
                     fig.colorbar(image, ax=ax, fraction=0.046, pad=0.04)
                 
                 fig.tight_layout()
-                plt.show()
+                # plt.show()
                 print(f'\n\n\nSaving {n_samples} upsampled training images...\n\n\n')
                 fig.savefig(SAVE_PATH + '/' + SAVE_NAME, dpi=600, bbox_inches='tight')
                 plt.close(fig)
@@ -317,7 +317,7 @@ class TrainingPipeline:
                     fig.colorbar(image, ax=ax, fraction=0.046, pad=0.04)
                 
                 fig.tight_layout()
-                plt.show()
+                #plt.show()
                 print(f'\n\n\nSaving {n_samples} upsampled training images...\n\n\n')
                 fig.savefig(SAVE_PATH + '/' + SAVE_NAME, dpi=600, bbox_inches='tight')
                 plt.close(fig)
@@ -571,7 +571,7 @@ class TrainingPipeline_new:
                 #     fig.colorbar(image, ax=ax, fraction=0.046, pad=0.04)
                 
                 fig.tight_layout()
-                plt.show()
+                #plt.show()
                 print(f'\n\n\nSaving {n_samples} upsampled training images...\n\n\n')
                 fig.savefig(SAVE_PATH + '/' + SAVE_NAME, dpi=600, bbox_inches='tight')
                 plt.close(fig)
@@ -834,7 +834,7 @@ class TrainingPipeline_ERA5_Condition:
                 #     fig.colorbar(image, ax=ax, fraction=0.046, pad=0.04)
                 
                 fig.tight_layout()
-                plt.show()
+                #plt.show()
                 print(f'\n\n\nSaving {n_samples} upsampled training images...\n\n\n')
                 fig.savefig(SAVE_PATH + '/' + SAVE_NAME, dpi=600, bbox_inches='tight')
                 fig2.savefig(SAVE_PATH + '/' + 'cond_ERA5_' + SAVE_NAME, dpi=600, bbox_inches='tight')

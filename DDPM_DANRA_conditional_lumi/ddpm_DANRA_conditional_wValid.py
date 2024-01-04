@@ -80,7 +80,7 @@ if __name__ == '__main__':
 
     n_samples_valid = n_files_valid
     cache_size_valid = n_files_valid
-    image_dim = n_danra_size#32#64#64#n_danra_size#
+    image_dim = 32#n_danra_size#64#64#n_danra_size#
     image_size = (image_dim,image_dim)
     n_seasons = 4#12#366#
     loss_type = 'simple'#'hybrid'#
@@ -359,6 +359,7 @@ if __name__ == '__main__':
     best_loss = np.inf
 
     print(f'\n\n\nStarting training...\n\n')
+
     # Loop over epochs
     for epoch in range(epochs):
         
@@ -461,6 +462,7 @@ if __name__ == '__main__':
 
         # Step the learning rate scheduler
         lr_scheduler.step(train_loss)
+    
 
     # Load best model state
     best_model_path = checkpoint_path#os.path.join('../../ModelCheckpoints/DDPM_DANRA', 'DDPM.pth.tar')

@@ -1,15 +1,10 @@
-import os
+
+import torch
 import random
-import datetime
-#import torch
 import numpy as np
-import matplotlib as mpl
-import matplotlib.colors as colors
 import matplotlib.pyplot as plt
-from matplotlib.colors import LinearSegmentedColormap
-import matplotlib.patches as patches
-import netCDF4 as nc
 from scipy.ndimage import distance_transform_edt as distance
+
 def find_rand_points(rect, crop_dim):
     '''
     Function to find random quadrants in a given rectangle
@@ -32,7 +27,7 @@ def find_rand_points(rect, crop_dim):
 
     x1_new = x1 + x_rand
     x2_new = x1_new + d
-    y1_new = y1 + y_rand 
+    y1_new = y1 + y_rand
     y2_new = y1_new + d 
 
     point = [x1_new, x2_new, y1_new, y2_new]
@@ -42,26 +37,21 @@ def generate_sdf(mask):
     # Ensure mask is boolean
     binary_mask = mask > 0 
 
-    # Distance transform for land
-    dist_transform_land = distance(binary_mask)
-
     # Distance transform for sea
     dist_transform_sea = distance(~binary_mask)
 
-    # Combine, with negative sign for sea
-    sdf = dist_transform_land - dist_transform_sea
+    # Set land to 1 and subtract sea distances
+    sdf = binary_mask.astype(np.float32) - dist_transform_sea
 
     return sdf
 
 def normalize_sdf(sdf):
-    # Find the maximum absolute value in the SDF
-    max_abs_val = np.abs(sdf).max()
+    # Find min and max in the SDF
+    min_val = np.min(sdf)
+    max_val = np.max(sdf)
 
-    # Scale the SDF to the range [-1, 1]
-    sdf_normalized = sdf / max_abs_val
-
-    # Shift and scale the range to [0, 1]
-    sdf_normalized = (sdf_normalized + 1) / 2
+    # Normalize the SDF
+    sdf_normalized = (sdf - min_val) / (max_val - min_val)
 
     return sdf_normalized
 
@@ -77,21 +67,43 @@ DOMAIN_2 = [200, 200+450, 70, 70+130]
 points1 = find_rand_points(DOMAIN_1, n_danra_size)
 points2 = find_rand_points(DOMAIN_2, n_danra_size)
 
-
+# Crop an example from the lsm data
 lsm_data_small = lsm_data[points1[0]:points1[1], points1[2]:points1[3]]
 
+
+
+# Generate the SDF
 sdf = generate_sdf(lsm_data_small)
 
-fig, ax = plt.subplots(1,3)
-im_lsm = ax[0].imshow(lsm_data_small)
-ax[0].set_ylim(ax[0].get_ylim()[::-1])
-im_sdf = ax[1].imshow(sdf)
-ax[1].set_ylim(ax[1].get_ylim()[::-1])
-im_sdf_norm = ax[2].imshow(normalize_sdf(sdf))# + lsm_data_small)
-ax[2].set_ylim(ax[2].get_ylim()[::-1])
-fig.colorbar(im_sdf_norm, ax=ax[2], orientation='vertical', fraction=0.046, pad=0.04)
-# Show colorbar
-fig.colorbar(im_sdf, ax=ax[1], orientation='vertical', fraction=0.046, pad=0.04)
+# Normalize the SDF
+sdf_norm = normalize_sdf(sdf)
 
+
+# Calculate a weights map
+max_land_weight = 1.0
+min_sea_weight = 0.5
+
+# Convert to torch tensor
+sdf_torch = torch.from_numpy(sdf_norm).unsqueeze(0).unsqueeze(0).float()
+
+# Calculate weights, and scale to the desired range
+weights = torch.sigmoid(sdf_torch) * (max_land_weight - min_sea_weight) + min_sea_weight
+
+
+
+
+# Plot lsm, sdf and weights
+fig, ax = plt.subplots(1,3, figsize=(15,5))
+ax[0].imshow(lsm_data_small)
+ax[0].set_ylim([0,128])
+
+sdf_im = ax[1].imshow(sdf_norm)
+ax[1].set_ylim([0,128])
+fig.colorbar(sdf_im, ax=ax[1], fraction=0.046, pad=0.04)
+
+weights_im = ax[2].imshow(weights.squeeze().numpy())
+ax[2].set_ylim([0,128])
+fig.colorbar(sdf_im, ax=ax[2], fraction=0.046, pad=0.04)
+
+fig.tight_layout()
 plt.show()
-

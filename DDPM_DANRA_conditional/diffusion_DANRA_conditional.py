@@ -145,3 +145,5 @@ class DiffusionUtils:
                 x = x + (torch.sqrt(beta) * noise)
 
             return x
+        
+

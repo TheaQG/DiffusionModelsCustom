@@ -1,15 +1,14 @@
 import os, tqdm, torch
 from multiprocessing import freeze_support
 import torch.nn as nn
-import torch.nn.functional as F
-
+import matplotlib.pyplot as plt
 from modules_DANRA_conditional import *
 from diffusion_DANRA_conditional import DiffusionUtils
 
 class SimpleLoss(nn.Module):
     def __init__(self):
         super(SimpleLoss, self).__init__()
-        self.mse = nn.MSELoss()#nn.L1Loss()#
+        self.mse = nn.MSELoss()#nn.L1Loss()#$
 
     def forward(self, predicted, target):
         return self.mse(predicted, target)
@@ -29,6 +28,30 @@ class HybridLoss(nn.Module):
         
         return loss
 
+class SDFWeightedMSELoss(nn.Module):
+    '''
+        Custom loss function for SDFs.
+
+    '''
+    def __init__(self, max_land_weight=1.0, min_sea_weight=0.5):
+        super().__init__()
+        self.max_land_weight = max_land_weight
+        self.min_sea_weight = min_sea_weight
+#        self.mse = nn.MSELoss(reduction='none')
+
+    def forward(self, input, target, sdf):
+        # Convert SDF to weights, using a sigmoid function (or similar)
+        # Scaling can be adjusted to control sharpness of transition
+        weights = torch.sigmoid(sdf) * (self.max_land_weight - self.min_sea_weight) + self.min_sea_weight
+
+        # Calculate the squared error
+        squared_error = (input - target)**2
+
+        # Apply the weights
+        weighted_squared_error = weights * squared_error
+
+        # Return mean of weighted squared error
+        return weighted_squared_error.mean()
 
 class TrainingPipeline_Hybrid:
     '''
@@ -665,7 +688,7 @@ class TrainingPipeline_ERA5_Condition:
 
     '''
     def __init__(self, model, lossfunc, optimizer, diffusion_utils:DiffusionUtils,
-                 device='cpu', weight_init=True, custom_weight_initializer=None):
+                 device='cpu', weight_init=True, custom_weight_initializer=None, sdf_weighted_loss=False):
         '''
             Initialize the class.
             Input:
@@ -687,6 +710,7 @@ class TrainingPipeline_ERA5_Condition:
         self.weight_init = weight_init
         self.diffusion_utils = diffusion_utils
         self.custom_weight_initializer = custom_weight_initializer
+        self.sdf_weighted_loss = sdf_weighted_loss
 
         # Initialize weights if weight_init is True
         if self.weight_init:
@@ -733,7 +757,12 @@ class TrainingPipeline_ERA5_Condition:
         return torch.save(state_dicts, os.path.join(dirname, filename))
     
 
-    def train(self, dataloader, verbose=True, PLOT_FIRST=False, SAVE_PATH='./', SAVE_NAME='upsampled_image.png'):
+    def train(self,
+              dataloader,
+              verbose=True,
+              PLOT_FIRST=False,
+              SAVE_PATH='./',
+              SAVE_NAME='upsampled_image.png'):
         '''
             Function for training model.
             Input:
@@ -745,14 +774,14 @@ class TrainingPipeline_ERA5_Condition:
         # Set loss to 0
         loss = 0.0
         
-        # # Loop over batches(tuple of img and seasons) in dataloader, using tqdm for progress bar
-        # for idx, data in tqdm.tqdm(enumerate(dataloader)):
-        #     # Investigate what shape the data is in (probably a mix of lists and tensors)
-        #     print(data)
-
+        # Loop over batches(tuple of img and seasons) in dataloader, using tqdm for progress bar
         for idx, samples in tqdm.tqdm(enumerate(dataloader)):
-            #(images, seasons), (lsm, topo, point)
-            (images, seasons, cond_images), lsm, topo, points = samples
+
+            if self.sdf_weighted_loss:
+                (images, seasons, cond_images), lsm, topo, sdf, points = samples
+            else:
+                (images, seasons, cond_images), lsm, topo, points = samples
+
             # Check the data type of the samples
             cond_images = cond_images.to(torch.float)
 
@@ -762,22 +791,9 @@ class TrainingPipeline_ERA5_Condition:
             images = images.to(self.device)
             cond_images = cond_images.to(self.device)
             seasons = seasons.to(self.device)
-            # from einops import rearrange
-            # images_re = rearrange(images, 'b c h w -> b c (h w)')
-            # ave_images = torch.mean(images_re, dim=2)
-            
-            # cond_images = torch.ones_like(images)
-
-            # for n in range(len(images)):
-            #     for c in range(len(images[n])):
-            #         cond_images[n,c,:,:] = ave_images[n,c]
-
-            # print((cond_images[0,0,:,:]).shape)
-            # print(cond_images[0,0,:,:])
-            # print(cond_images.shape)
-
-#            images = torch.cat((cond_images, images), dim=1)
-
+            lsm = lsm.to(self.device)
+            topo = topo.to(self.device)
+            sdf = sdf.to(self.device)
             
             
             if PLOT_FIRST:
@@ -814,26 +830,13 @@ class TrainingPipeline_ERA5_Condition:
                 fig3.suptitle('Topography and land/sea mask')
                 i = 0
                 for lsm_im, topo_im, season in zip(lsm_samples, topo_samples, seasons_samples):
-                    image_lsm = ax3s[0, i].imshow(lsm_im.permute(1,2,0).cpu().detach().numpy())
+                    ax3s[0, i].imshow(lsm_im.permute(1,2,0).cpu().detach().numpy())
                     ax3s[0, i].set_ylim([0, lsm_im.shape[1]])
-                    image_topo = ax3s[1, i].imshow(topo_im.permute(1,2,0).cpu().detach().numpy())
+                    ax3s[1, i].imshow(topo_im.permute(1,2,0).cpu().detach().numpy())
                     ax3s[1, i].set_ylim([0, topo_im.shape[1]])
-                    # ax.set_title(f'Season: {season.item()}')
-                    # ax.axis('off')
-                    # ax.set_ylim([0, im.shape[1]])
-                    # fig3.colorbar(image, ax=ax, fraction=0.046, pad=0.04)
                     i += 1
                 fig3.tight_layout()
 
-                
-                # for cond_im, season, ax in zip(images_samples, seasons_samples, ax.flatten()):
-                #     image = ax.imshow(im.permute(1,2,0).cpu().detach().numpy())
-                #     ax.set_title(f'Season: {season.item()}')
-                #     ax.axis('off')
-                #     ax.set_ylim([0, im.shape[1]])
-                #     fig.colorbar(image, ax=ax, fraction=0.046, pad=0.04)
-                
-                fig.tight_layout()
                 plt.show()
                 print(f'\n\n\nSaving {n_samples} upsampled training images...\n\n\n')
                 fig.savefig(SAVE_PATH + '/' + SAVE_NAME, dpi=600, bbox_inches='tight')
@@ -854,7 +857,10 @@ class TrainingPipeline_ERA5_Condition:
             predicted_noise = self.model(x_t, t, seasons, cond_images, lsm, topo)
 
             # Calculate loss
-            batch_loss = self.lossfunc(predicted_noise, noise)
+            if self.sdf_weighted_loss:
+                batch_loss = self.lossfunc(predicted_noise, noise, sdf)
+            else:
+                batch_loss = self.lossfunc(predicted_noise, noise)
 
             # Backpropagate loss
             batch_loss.backward()
@@ -881,7 +887,10 @@ class TrainingPipeline_ERA5_Condition:
 
         # Loop over batches(tuple of img and seasons) in dataloader, using tqdm for progress bar
         for idx, samples in tqdm.tqdm(enumerate(dataloader)):
-            (images, seasons, cond_images), lsm, topo, points = samples
+            if self.sdf_weighted_loss:
+                (images, seasons, cond_images), lsm, topo, sdf, points = samples
+            else:
+                (images, seasons, cond_images), lsm, topo, points = samples
             # Set images and seasons to device
             images = images.to(self.device)
             seasons = seasons.to(self.device)
@@ -890,17 +899,6 @@ class TrainingPipeline_ERA5_Condition:
             cond_images = cond_images.to(torch.float)
             cond_images = cond_images.to(self.device)
             
-
-            # from einops import rearrange
-            # images_re = rearrange(images, 'b c h w -> b c (h w)')
-            # ave_images = torch.mean(images_re, dim=2)
-            
-            # cond_images = torch.ones_like(images)
-
-            # for n in range(len(images)):
-            #     for c in range(len(images[n])):
-            #         cond_images[n,c,:,:] = ave_images[n,c]
-
             # Sample timesteps from diffusion utils
             t = self.diffusion_utils.sampleTimesteps(images.shape[0])
 
@@ -911,7 +909,10 @@ class TrainingPipeline_ERA5_Condition:
             predicted_noise = self.model(x_t, t, seasons, cond_images, lsm, topo)
 
             # Calculate loss
-            batch_loss = self.lossfunc(predicted_noise, noise)
+            if self.sdf_weighted_loss:
+                batch_loss = self.lossfunc(predicted_noise, noise, sdf)
+            else:
+                batch_loss = self.lossfunc(predicted_noise, noise)
 
             # Add batch loss to total loss
             val_loss += batch_loss.item()

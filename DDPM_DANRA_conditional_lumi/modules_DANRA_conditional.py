@@ -9,16 +9,10 @@
         - Decoder: decoder module
         
 '''
-import os, tqdm, random, torch
-import numpy as np
+import torch
 import torch.nn as nn
-from PIL import Image
-#from multiprocessing import Manager as SharedMemoryManager
-from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms
-from matplotlib import pyplot as plt
 from torchvision.models.resnet import ResNet, BasicBlock
-from typing import Optional, Union, Iterable, Tuple
+from typing import Optional, Iterable
 
 class SinusoidalEmbedding(nn.Module):
     '''

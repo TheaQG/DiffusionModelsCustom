@@ -41,7 +41,7 @@ def generate_sdf(mask):
     dist_transform_sea = distance(~binary_mask)
 
     # Set land to 1 and subtract sea distances
-    sdf = binary_mask.astype(np.float32) - dist_transform_sea
+    sdf = 10*binary_mask.astype(np.float32) - dist_transform_sea
 
     return sdf
 
@@ -57,6 +57,7 @@ def normalize_sdf(sdf):
 
 lsm_data = np.load('/Users/au728490/Documents/PhD_AU/Python_Scripts/Data/DANRA/data_lsm/truth_fullDomain/lsm_full.npz')['data']
 
+
 n_danra_size = 128
 
 # Define domains to draw data from (around DK (DOMAIN_1) and northern coasts of Germany and Netherlands(DOMAIN_2))
@@ -69,7 +70,7 @@ points2 = find_rand_points(DOMAIN_2, n_danra_size)
 
 # Crop an example from the lsm data
 lsm_data_small = lsm_data[points1[0]:points1[1], points1[2]:points1[3]]
-
+#lsm_data_small = lsm_data[DOMAIN_1[0]:DOMAIN_1[1], DOMAIN_1[2]:DOMAIN_1[3]]
 
 
 # Generate the SDF
@@ -81,7 +82,7 @@ sdf_norm = normalize_sdf(sdf)
 
 # Calculate a weights map
 max_land_weight = 1.0
-min_sea_weight = 0.5
+min_sea_weight = 0.
 
 # Convert to torch tensor
 sdf_torch = torch.from_numpy(sdf_norm).unsqueeze(0).unsqueeze(0).float()
@@ -90,20 +91,22 @@ sdf_torch = torch.from_numpy(sdf_norm).unsqueeze(0).unsqueeze(0).float()
 weights = torch.sigmoid(sdf_torch) * (max_land_weight - min_sea_weight) + min_sea_weight
 
 
-
-
 # Plot lsm, sdf and weights
 fig, ax = plt.subplots(1,3, figsize=(15,5))
 ax[0].imshow(lsm_data_small)
-ax[0].set_ylim([0,128])
+ax[0].set_ylim([0,lsm_data_small.shape[0]])
+ax[0].set_title('LSM')
 
 sdf_im = ax[1].imshow(sdf_norm)
-ax[1].set_ylim([0,128])
+ax[1].set_ylim([0,sdf_norm.shape[0]])
 fig.colorbar(sdf_im, ax=ax[1], fraction=0.046, pad=0.04)
+ax[1].set_title('SDF')
 
 weights_im = ax[2].imshow(weights.squeeze().numpy())
-ax[2].set_ylim([0,128])
-fig.colorbar(sdf_im, ax=ax[2], fraction=0.046, pad=0.04)
+ax[2].set_ylim([0,weights.squeeze().numpy().shape[0]])
+fig.colorbar(weights_im, ax=ax[2], fraction=0.046, pad=0.04)
+ax[2].set_title('Weights')
 
 fig.tight_layout()
+fig.savefig('/Users/au728490/Documents/PhD_AU/PhD_AU_material/Figures/DiffusionModel/lsm_sdf_weights.png', dpi=600, bbox_inches='tight')
 plt.show()

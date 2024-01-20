@@ -8,7 +8,7 @@ import numpy as np
 import os 
 import netCDF4 as nc
 
-def convert_npz_to_zarr(npz_directory, zarr_file):
+def convert_npz_to_zarr(npz_directory, zarr_file, VERBOSE=False):
     '''
         Function to convert DANRA .npz files to zarr files
         
@@ -19,6 +19,7 @@ def convert_npz_to_zarr(npz_directory, zarr_file):
         zarr_file: str
             Name of zarr file to be created
     '''
+    print(f'Converting {len(os.listdir(npz_directory))} .npz files to zarr file...')
     # Create zarr group (equivalent to a directory) 
     zarr_group = zarr.open_group(zarr_file, mode='w')
 
@@ -26,7 +27,8 @@ def convert_npz_to_zarr(npz_directory, zarr_file):
     for npz_file in os.listdir(npz_directory):
         # Check if the file is a .npz file (not dir or .DS_Store)
         if npz_file.endswith('.npz'):
-            print(os.path.join(npz_directory, npz_file))
+            if VERBOSE:
+                print(os.path.join(npz_directory, npz_file))
             # Load the .npz file
             npz_data = np.load(os.path.join(npz_directory, npz_file))
             # Loop through all keys in the .npz file
@@ -35,7 +37,7 @@ def convert_npz_to_zarr(npz_directory, zarr_file):
                 zarr_group.array(npz_file.replace('.npz', '') + '/' + key, npz_data[key], chunks=True, dtype=np.float32)
 
 
-def convert_nc_to_zarr(nc_directory, zarr_file):
+def convert_nc_to_zarr(nc_directory, zarr_file, VERBOSE=False):
     '''
         Function to convert ERA5 .nc files to zarr files
         
@@ -46,6 +48,7 @@ def convert_nc_to_zarr(nc_directory, zarr_file):
         zarr_file: str
             Name of zarr file to be created
     '''
+    print(f'Converting {len(os.listdir(nc_directory))} .nc files to zarr file...')
     # Create zarr group (equivalent to a directory)
     zarr_group = zarr.open_group(zarr_file, mode='w')
     
@@ -53,7 +56,8 @@ def convert_nc_to_zarr(nc_directory, zarr_file):
     for nc_file in os.listdir(nc_directory):
         # Check if the file is a .nc file (not dir or .DS_Store)
         if nc_file.endswith('.nc'):
-            print(os.path.join(nc_directory, nc_file))
+            if VERBOSE:
+                print(os.path.join(nc_directory, nc_file))
             # Load the .nc file
             nc_data = nc.Dataset(os.path.join(nc_directory, nc_file))
             # Loop through all variables in the .nc file

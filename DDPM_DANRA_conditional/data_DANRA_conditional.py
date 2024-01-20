@@ -65,8 +65,8 @@ def preprocess_lsm_topography_from_data(lsm_data, topo_data, target_size, scale=
             - scale: whether to scale the topography data to [0, 1] interval
     '''    
     # 1. Convert to Tensors
-    lsm_tensor = torch.tensor(lsm_data).float().unsqueeze(0)  # Add channel dimension
-    topo_tensor = torch.tensor(topo_data).float().unsqueeze(0)
+    lsm_tensor = torch.tensor(lsm_data.copy()).float().unsqueeze(0)  # Add channel dimension
+    topo_tensor = torch.tensor(topo_data.copy()).float().unsqueeze(0)
     
     if scale:
         # 2. Normalize Topography to [0, 1] interval

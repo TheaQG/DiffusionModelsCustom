@@ -11,6 +11,7 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 import matplotlib.pyplot as plt
 import multiprocessing
+import netCDF4 as nc
 from multiprocessing import freeze_support
 from scipy.ndimage import distance_transform_edt as distance
 import zarr
@@ -152,7 +153,6 @@ class DateFromFile_nc:
         self.month = int(self.filename[-7:-5])
         self.day = int(self.filename[-5:-3])
 
-
     def determine_season(self):
         # Determine season based on month
         if self.month in [3, 4, 5]:
@@ -189,14 +189,14 @@ class DateFromFile_nc:
         # Compute the day of the year
         day_of_year = sum(days_in_month[:self.month]) + self.day - 1  # "-1" because if it's January 1st, it's the 0th day of the year
         return day_of_year
-    
+
 class DateFromFile_zarr:
     def __init__(self, filename):
         self.filename = filename
-        self.year = int(self.filename[-8:-4])
-        self.month = int(self.filename[-4:-2])
-        self.day = int(self.filename[-2:])
-        
+        self.year = int(self.filename[-11:-7])
+        self.month = int(self.filename[-7:-5])
+        self.day = int(self.filename[-5:-3])
+
     def determine_season(self):
         # Determine season based on month
         if self.month in [3, 4, 5]:
@@ -298,6 +298,277 @@ class Scale(object):
 
         return DataNew
 
+
+
+class DANRA_Dataset_cutouts_ERA5(Dataset):
+    '''
+        Class for setting the DANRA dataset with option for random cutouts from specified domains.
+        Along with DANRA data, the land-sea mask and topography data is also loaded at same cutout.
+        Possibility to sample more than n_samples if cutouts are used.
+        Option to shuffle data or load sequentially.
+        Option to scale data to new interval.
+        Option to use conditional (classifier) sampling (season, month or day).
+    '''
+    def __init__(self, 
+                data_dir:str,                       # Path to data
+                data_size:tuple,                    # Size of data (2D image, tuple)
+                n_samples:int=365,                  # Number of samples to load
+                cache_size:int=365,                 # Number of samples to cache
+                variable:str='temp',                 # Variable to load (temp or prcp)
+                shuffle=False,                      # Whether to shuffle data (or load sequentially)
+                cutouts = False,                    # Whether to use cutouts 
+                cutout_domains = None,              # Domains to use for cutouts
+                n_samples_w_cutouts = None,         # Number of samples to load with cutouts (can be greater than n_samples)
+                lsm_full_domain = None,             # Land-sea mask of full domain
+                topo_full_domain = None,            # Topography of full domain
+                sdf_weighted_loss = False,          # Whether to use weighted loss for SDF
+                scale=True,                         # Whether to scale data to new interval
+                in_low=-1,                          # Lower bound of new interval
+                in_high=1,                          # Upper bound of new interval
+                data_min_in=-30,                    # Lower bound of data interval
+                data_max_in=30,                     # Upper bound of data interval
+                conditional=True,                   # Whether to use conditional sampling
+                data_dir_cond:str=None,             # Path to directory containing conditional data
+                n_classes=4                         # Number of classes for conditional sampling
+                ):                       
+        '''n_samples_w_cutouts
+
+        '''
+        self.data_dir = data_dir
+        self.n_samples = n_samples
+        self.data_size = data_size
+        self.cache_size = cache_size
+        self.variable = variable
+        self.scale = scale
+        self.shuffle = shuffle
+        self.cutouts = cutouts
+        self.cutout_domains = cutout_domains
+        if n_samples_w_cutouts is None:
+            self.n_samples_w_cutouts = self.n_samples
+        else:
+            self.n_samples_w_cutouts = n_samples_w_cutouts
+        self.lsm_full_domain = lsm_full_domain
+        self.topo_full_domain = topo_full_domain
+        self.sdf_weighted_loss = sdf_weighted_loss
+        self.in_low = in_low
+        self.in_high = in_high
+        self.data_min_in = data_min_in
+        self.data_max_in = data_max_in
+        self.conditional = conditional
+        self.data_dir_cond = data_dir_cond
+        self.n_classes = n_classes
+
+        # Load files from directory (both data and conditional data)
+        self.files = sorted(os.listdir(self.data_dir))
+        
+
+        # Remove .DS_Store file if present
+        if '.DS_Store' in self.files:
+            self.files.remove('.DS_Store')
+        
+        if self.conditional:
+            self.files_cond = sorted(os.listdir(self.data_dir_cond))
+            if '.DS_Store' in self.files_cond:
+                self.files_cond.remove('.DS_Store')
+
+        # Sample n_samples from files, either randomly or sequentially
+        if self.cutouts == False:
+            if self.shuffle:
+                n_samples = min(len(self.files), len(self.files_cond))
+                random_idx = random.sample(range(n_samples), n_samples)
+                self.files = [self.files[i] for i in random_idx]
+                if self.conditional:
+                    self.files_cond = [self.files_cond[i] for i in random_idx]
+            else:
+                self.files = self.files[0:n_samples]
+                if self.conditional:
+                    self.files_cond = self.files_cond[0:n_samples]
+        else:
+            if self.shuffle:
+                n_samples = min(len(self.files), len(self.files_cond))
+                random_idx = random.sample(range(n_samples), self.n_samples_w_cutouts)
+                self.files = [self.files[i] for i in random_idx]
+                if self.conditional:
+                    self.files_cond = [self.files_cond[i] for i in random_idx]
+            else:
+                n_individual_samples = len(self.files)
+                factor = int(np.ceil(self.n_samples_w_cutouts/n_individual_samples))
+                self.files = self.files*factor
+                self.files = self.files[0:self.n_samples_w_cutouts]
+                if self.conditional:
+                    self.files_cond = self.files_cond*factor
+                    self.files_cond = self.files_cond[0:self.n_samples_w_cutouts]
+        
+        # Set cache for data loading - if cache_size is 0, no caching is used
+        self.cache = multiprocessing.Manager().dict()
+        # #self.cache = SharedMemoryManager().dict()
+        
+        # Set transforms
+        if scale:
+            self.transforms = transforms.Compose([
+                transforms.ToTensor(),
+                transforms.Resize(self.data_size, antialias=True),
+                Scale(self.in_low, self.in_high, self.data_min_in, self.data_max_in)
+                ])
+        else:
+            self.transforms = transforms.Compose([
+                transforms.ToTensor(),
+                transforms.Resize(self.data_size, antialias=True)
+                ])
+        def __len__(self):
+            '''
+                Return the length of the dataset.
+            '''
+            return len(self.files)
+        
+    def __len__(self):
+        '''
+            Return the length of the dataset.
+        '''
+        return len(self.files)
+
+    def _addToCache(self, idx:int, data:torch.Tensor):
+        '''
+            Add item to cache. 
+            If cache is full, remove random item from cache.
+            Input:
+                - idx: index of item to add to cache
+                - data: data to add to cache
+        '''
+        # If cache_size is 0, no caching is used
+        if self.cache_size > 0:
+            # If cache is full, remove random item from cache
+            if len(self.cache) >= self.cache_size:
+                # Get keys from cache
+                keys = list(self.cache.keys())
+                # Select random key to remove
+                key_to_remove = random.choice(keys)
+                # Remove key from cache
+                self.cache.pop(key_to_remove)
+            # Add data to cache
+            self.cache[idx] = data
+    
+    def __getitem__(self, idx:int):
+        '''
+            Get item from dataset based on index.
+            Input:
+                - idx: index of item to get
+        '''
+
+        # Get file path, join directory and file name
+        file_path = os.path.join(self.data_dir, self.files[idx])
+        file_name = self.files[idx]
+
+        file_path_cond = os.path.join(self.data_dir_cond, self.files_cond[idx])
+        file_name_cond = self.files_cond[idx]
+        
+        if self.conditional:
+            if self.n_classes == 4:
+
+                # Determine class from filename
+                dateObj = DateFromFile_nc(file_name)
+                classifier = dateObj.determine_season()
+            
+            elif self.n_classes == 12:
+                # Determine class from filename
+                dateObj = DateFromFile_nc(file_name)
+                classifier = dateObj.determine_month()
+
+            elif self.n_classes == 366:
+                # Determine class from filename
+                dateObj = DateFromFile_nc(file_name)
+                classifier = dateObj.determine_day()
+
+            else:
+                raise ValueError('n_classes must be 4, 12 or 365')
+            
+            # # Convert classifier to one-hot encoding
+            # class_idx = torch.tensor(classifier)
+            # classifier = torch.zeros(self.n_classes)
+            # classifier[class_idx] = 1            
+
+            classifier = torch.tensor(classifier)
+        
+        elif not self.conditional:
+            # Set classifier to None
+            classifier = None
+        else:
+            raise ValueError('conditional must be True or False')
+
+
+
+        # Load image from file and subtract 273.15 to convert from Kelvin to Celsius
+        with nc.Dataset(file_path) as data:
+            if self.variable == 'temp':
+                img = data['t'][0,0,:,:] - 273.15
+            elif self.variable == 'prcp':
+                img = data['tp'][0,0,:,:] 
+        
+        with np.load(file_path_cond) as data:
+            if self.variable == 'temp':
+                img_cond = data['arr_0'][:,:] - 273.15
+            elif self.variable == 'prcp':
+                img_cond = data['arr_0'][:,:] 
+#            [0,0,:,:] - 273.15 # ???????????????????????
+
+        if self.cutouts:
+            # Get random point
+            point = find_rand_points(self.cutout_domains, 128)
+            # Crop image, lsm and topo
+            img = img[point[0]:point[1], point[2]:point[3]]
+            lsm_use = self.lsm_full_domain[point[0]:point[1], point[2]:point[3]]
+            topo_use = self.topo_full_domain[point[0]:point[1], point[2]:point[3]]
+            if self.sdf_weighted_loss:
+                sdf_use = generate_sdf(lsm_use)
+                sdf_use = normalize_sdf(sdf_use)
+
+            if self.conditional:
+                img_cond = img_cond[point[0]:point[1], point[2]:point[3]]
+        else:
+            point = None
+        
+        # Apply transforms if any
+        if self.transforms:
+            img = self.transforms(img)
+
+            if self.cutouts:
+                lsm_use = self.transforms(lsm_use.copy())
+                topo_use = self.transforms(topo_use.copy())
+                if self.sdf_weighted_loss:
+                    sdf_use = self.transforms(sdf_use.copy())
+
+            if self.conditional:
+                img_cond = self.transforms(img_cond)
+
+        if self.conditional:
+            # Return sample image and classifier
+            sample = (img, classifier, img_cond)
+        else:   
+            # Return sample image
+            sample = (img)
+        
+        # Add item to cache
+        self._addToCache(idx, sample)
+
+        
+        if self.cutouts:
+            if self.sdf_weighted_loss:
+                # Return sample image and classifier and random point for cropping (lsm and topo)
+                return sample, lsm_use, topo_use, sdf_use, point
+            else:
+                # Return sample image and classifier and random point for cropping (lsm and topo)
+                return sample, lsm_use, topo_use, point
+        else:
+            # Return sample image and classifier only
+            return sample
+    
+    def __name__(self, idx:int):
+        '''
+            Return the name of the file based on index.
+            Input:
+                - idx: index of item to get
+        '''
+        return self.files[idx]
 
 
 
@@ -463,20 +734,20 @@ class DANRA_Dataset_cutouts_ERA5_Zarr(Dataset):
         # file_path_cond = os.path.join(self.data_dir_cond, self.files_cond[idx])
         file_name_cond = self.files_cond[idx]
         if self.conditional:
-            
             if self.n_classes == 4:
+
                 # Determine class from filename
-                dateObj = DateFromFile_zarr(file_name)
+                dateObj = DateFromFile_nc(file_name)
                 classifier = dateObj.determine_season()
             
             elif self.n_classes == 12:
                 # Determine class from filename
-                dateObj = DateFromFile_zarr(file_name)
+                dateObj = DateFromFile_nc(file_name)
                 classifier = dateObj.determine_month()
 
             elif self.n_classes == 366:
                 # Determine class from filename
-                dateObj = DateFromFile_zarr(file_name)
+                dateObj = DateFromFile_nc(file_name)
                 classifier = dateObj.determine_day()
 
             else:

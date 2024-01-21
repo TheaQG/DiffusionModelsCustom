@@ -1,13 +1,13 @@
 #!/bin/bash
-#SBATCH --job-name=DDPM_64x64_sdf
+#SBATCH --job-name=mock_ml_test
 #SBATCH --account=project_465000568
 #SBATCH --time=12:00:00
-#SBATCH --output=DDPM_64x64_sdf_out.txt
-#SBATCH --error=DDPM_64x64_sdf_err.txt
+#SBATCH --output=DDPM_test_out.txt
+#SBATCH --error=DDPM_test_err.txt
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
-#SBATCH --mem=50G
+#SBATCH --mem=2G
 #SBATCH --gres=gpu:2
 #SBATCH --partition=small-g
 

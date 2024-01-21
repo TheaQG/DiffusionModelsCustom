@@ -22,7 +22,7 @@ def convert_npz_to_zarr(npz_directory, zarr_file, VERBOSE=False):
     print(f'Converting {len(os.listdir(npz_directory))} .npz files to zarr file...')
     # Create zarr group (equivalent to a directory) 
     zarr_group = zarr.open_group(zarr_file, mode='w')
-    
+
     # Loop through all .npz files in the .npz directory
     for npz_file in os.listdir(npz_directory):
         # Check if the file is a .npz file (not dir or .DS_Store)
@@ -51,9 +51,13 @@ def convert_nc_to_zarr(nc_directory, zarr_file, VERBOSE=False):
     print(f'Converting {len(os.listdir(nc_directory))} .nc files to zarr file...')
     # Create zarr group (equivalent to a directory)
     zarr_group = zarr.open_group(zarr_file, mode='w')
+    print('zarr group created')
     
     # Loop through all .nc files in the .nc directory 
     for nc_file in os.listdir(nc_directory):
+        # Print the first file name
+        if nc_file == os.listdir(nc_directory)[0]:
+            print(nc_file)
         # Check if the file is a .nc file (not dir or .DS_Store)
         if nc_file.endswith('.nc'):
             if VERBOSE:
@@ -68,27 +72,33 @@ def convert_nc_to_zarr(nc_directory, zarr_file, VERBOSE=False):
                 zarr_group.array(nc_file.replace('.nc', '') + '/' + var, data, chunks=True, dtype=np.float32)
 
 if __name__ == '__main__':
+
+
     # Testing the function
-
-    nc_directory = '/Users/au728490/Documents/PhD_AU/Python_Scripts/Data/Data_DiffMod/data_DANRA/size_589x789_full/temp_589x789_test'
-    zarr_file = '/Users/au728490/Documents/PhD_AU/Python_Scripts/Data/Data_DiffMod/data_DANRA/size_589x789_full/zarr_files/temp_589x789_test.zarr'
-
-    # convert_nc_to_zarr(nc_directory, zarr_file)
-
+    split_list = ['train', 'valid', 'test']
+    var_list = ['temp', 'prcp']
+    model_list = ['DANRA', 'ERA5']
+    lumi_data_dir = '/scratch/project_465000568/data_'
+    danra_size_str = '589x789'
     
-    # Test loading the zarr file
-    zarr_group = zarr.open_group(zarr_file, mode='r')
+    for split in split_list:
+        for var in var_list:
+            for model in model_list:
+                print(f'Converting {model} {var} {split} files to zarr...')
+                if model == 'DANRA':
+                    zarr_file = lumi_data_dir + model + '/size_' + danra_size_str + '_full/zarr_files/' + var + '_' + danra_size_str + '_' + split + '.zarr'
+                    data_dir = lumi_data_dir + model + '/size_' + danra_size_str + '_full/' + var + '_' + danra_size_str + '_' + split
 
-    files = list(zarr_group.keys())
-    idx = np.random.randint(0, len(files))
-    
-    file_name = files[idx]
+                    convert_nc_to_zarr(data_dir, zarr_file, VERBOSE=True)
+                elif model == 'ERA5':
+                    zarr_file = lumi_data_dir + model + '/size_' + danra_size_str + '/zarr_files/' + var + '_' + danra_size_str + '_' + split + '.zarr'
+                    data_dir = lumi_data_dir + model + '/size_' + danra_size_str + '/' + var + '_' + danra_size_str + '_' + split
 
-    # DANRA temp: 't'
-    # DANRA prcp: 'tp'
-    # ERA5 temp: 'arr_0'
-    # ERA5 prcp: 'arr_0'
-    data = zarr_group[file_name]['t'][()]
+                    convert_npz_to_zarr(data_dir, zarr_file, VERBOSE=True)
+                
 
-    print(data)
+                # Test loading the zarr file
+                zarr_group = zarr.open_group(zarr_file, mode='r')
+                print(zarr_group.info)
+
     

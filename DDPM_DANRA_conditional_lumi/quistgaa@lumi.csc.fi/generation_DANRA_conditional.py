@@ -321,10 +321,10 @@ if __name__ == '__main__':
     # Define path to model checkpoint
     image_dim = danra_size
     im_dim_str = str(image_dim) + 'x' + str(image_dim)
-    cond_str = 'ERA5_cond_lsm_topo_random__' + loss_type + '__' + str(n_seasons) + '_seasons' + '_ValidSplitInTime_9yrs'
+    cond_str = 'lsm_topo_random__' + loss_type + '__' + str(n_seasons) + '_seasons' + '_ValidSplitInTime_9yrs'
     var_str = var
-    model_str = 'DDPM_conditional_ERA5'
-    checkpoint_dir = "/Users/au728490/Documents/PhD_AU/Python_Scripts/ModelCheckpoints/LUMI_trained_models"
+    model_str = 'DDPM_conditional_TEST'
+    checkpoint_dir = "/Users/au728490/Documents/PhD_AU/Python_Scripts/ModelCheckpoints/DDPM_DANRA"
     NAME_CHECKPOINT = model_str + '__' + var_str + '__' + im_dim_str + '__' + cond_str + '.pth.tar'
     
     checkpoint_path = os.path.join(checkpoint_dir, NAME_CHECKPOINT)

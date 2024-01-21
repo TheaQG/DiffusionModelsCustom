@@ -858,7 +858,7 @@ class TrainingPipeline_ERA5_Condition:
 
             # Calculate loss
             if self.sdf_weighted_loss:
-                batch_loss = self.lossfunc(predicted_noise, noise, sdf)
+                batch_loss = self.loss_func(predicted_noise, noise, sdf)
             else:
                 batch_loss = self.lossfunc(predicted_noise, noise)
 

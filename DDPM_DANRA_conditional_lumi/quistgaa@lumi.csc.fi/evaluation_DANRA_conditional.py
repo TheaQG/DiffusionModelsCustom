@@ -21,9 +21,9 @@ if __name__ == '__main__':
 
     image_dim = danra_size
     im_dim_str = str(image_dim) + 'x' + str(image_dim)
-    cond_str = 'ERA5_cond_lsm_topo_random__' + loss_type + '__' + str(n_seasons) + '_seasons' + '_ValidSplitInTime_9yrs'
+    cond_str = 'lsm_topo_random__' + loss_type + '__' + str(n_seasons) + '_seasons' + '_ValidSplitInTime_9yrs'
     var_str = var
-    model_str = 'DDPM_conditional_ERA5'
+    model_str = 'DDPM_conditional_TEST'
     SAVE_PATH = '/Users/au728490/Documents/PhD_AU/Python_Scripts/DiffusionModels/DDPM_DANRA_conditional/final_generated_samples/'
     SAVE_NAME =  model_str + '__' + var_str + '__' + im_dim_str + '__' + cond_str + '__' + str(n_samples_gen) + '_samples.npz'
 
@@ -132,17 +132,17 @@ if __name__ == '__main__':
     
 
 
-    # # Calculate Moran's I for all samples. Plot histogram of Moran's I values
-    # morans_I = []
-    # for gen_im, ev_im in zip(gen_imgs, eval_imgs):
-    #     morans_I.append(Moran(gen_im.flatten(), pysal.weights.lat2W(image_dim, image_dim)).I)
-    # morans_I = np.array(morans_I)
+    # Calculate Moran's I for all samples. Plot histogram of Moran's I values
+    morans_I = []
+    for gen_im, ev_im in zip(gen_imgs, eval_imgs):
+        morans_I.append(Moran(gen_im.flatten(), pysal.weights.lat2W(image_dim, image_dim)).I)
+    morans_I = np.array(morans_I)
 
-    # fig, ax = plt.subplots(figsize=(8,6))
-    # ax.hist(morans_I, bins=20)
-    # ax.set_title(f'Moran\'s I for all samples, mean: {np.nanmean(morans_I):.2f}')
-    # ax.set_xlabel(f'Moran\'s I')
-    # ax.set_ylabel(f'Count')
+    fig, ax = plt.subplots(figsize=(8,6))
+    ax.hist(morans_I, bins=20)
+    ax.set_title(f'Moran\'s I for all samples, mean: {np.nanmean(morans_I):.2f}')
+    ax.set_xlabel(f'Moran\'s I')
+    ax.set_ylabel(f'Count')
     plt.show()
 
 

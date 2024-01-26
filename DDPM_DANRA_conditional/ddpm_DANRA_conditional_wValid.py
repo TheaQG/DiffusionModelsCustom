@@ -14,7 +14,7 @@ import numpy as np
 
 from torch.utils.data import DataLoader
 from matplotlib import pyplot as plt
-
+from torchinfo import summary
 
 # Import objects from other files in this repository
 from data_DANRA_conditional import DANRA_Dataset_cutouts_ERA5_Zarr, preprocess_lsm_topography
@@ -25,7 +25,33 @@ from training_DANRA_conditional import *
 # Run 'export MKL_SERVICE_FORCE_INTEL=1' in bash
 
 
-
+def model_summary(model):
+    print("model_summary")
+    print()
+    print("Layer_name" + "\t"*7 + "Number of Parameters")
+    print("="*100)
+    model_parameters = [layer for layer in model.parameters() if layer.requires_grad]
+    layer_name = [child for child in model.children()]
+    j = 0
+    total_params = 0
+    print("\t"*10)
+    for i in layer_name:
+        print()
+        param = 0
+        try:
+            bias = (i.bias is not None)
+        except:
+            bias = False  
+        if not bias:
+            param =model_parameters[j].numel()+model_parameters[j+1].numel()
+            j = j+2
+        else:
+            param =model_parameters[j].numel()
+            j = j+1
+        print(str(i) + "\t"*3 + str(param))
+        total_params+=param
+    print("="*100)
+    print(f"Total Params:{total_params}")     
 
 
 if __name__ == '__main__':
@@ -520,8 +546,26 @@ if __name__ == '__main__':
         print(f'Input shape of test: {test_input.shape}')
         print(f'Shape of time embedding: {t_test.shape}')
         print(f'Shape of season embedding: {y_test.shape}')
+        print(f'Shape of condition image: {cond_img.shape}')
+        print(f'Shape of lsm condition: {lsm_test.shape}')
+        print(f'Shape of topo condition: {topo_test.shape}\n\n')
         test = pipeline.model(test_input, t_test, y_test, cond_img=cond_img, lsm_cond=lsm_test, topo_cond=topo_test)
 
+        inputs = (
+            test_input,
+            t_test,
+            y_test,
+            cond_img,
+            lsm_test,
+            topo_test
+        )
+
+        print(f'\n\n\nModel summary:\n\n')
+        summary(pipeline.model, input_data=inputs)
+
+        print(f'Output shape of test: {test.shape}')
+
+        
         
         print(f'Output shape of test: {test.shape}')
         print('\n')
@@ -562,13 +606,12 @@ if __name__ == '__main__':
         valid_losses.append(valid_loss)
 
         # # Print train and valid loss
-        if valid_loss > best_loss:
-            print(f'\n\nTraining Loss: {train_loss:.6f}\n\n')
-            print(f'Validation Loss: {valid_loss:.6f}\n\n')
+        print(f'\n\nTraining Loss: {train_loss:.6f}\n\n')
+        print(f'Validation Loss: {valid_loss:.6f}\n\n')
 
         # If valid loss is better than best loss, save model
-        if train_loss < best_loss:
-            best_loss = train_loss
+        if valid_loss < best_loss:
+            best_loss = valid_loss
             pipeline.save_model(checkpoint_dir, checkpoint_name)
             print(f'Model saved at epoch {epoch+1} with training loss {train_loss:.6f}')
             print(f'Validation loss: {valid_loss:.6f}')

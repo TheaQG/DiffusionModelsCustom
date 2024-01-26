@@ -460,13 +460,12 @@ if __name__ == '__main__':
         valid_losses.append(valid_loss)
 
         # # Print train and valid loss
-        if valid_loss > best_loss:
-            print(f'\n\nTraining Loss: {train_loss:.6f}\n\n')
-            print(f'Validation Loss: {valid_loss:.6f}\n\n')
+        print(f'\n\nTraining Loss: {train_loss:.6f}\n\n')
+        print(f'Validation Loss: {valid_loss:.6f}\n\n')
 
         # If valid loss is better than best loss, save model
-        if train_loss < best_loss:
-            best_loss = train_loss
+        if valid_loss < best_loss:
+            best_loss = valid_loss
             pipeline.save_model(checkpoint_dir, checkpoint_name)
             print(f'Model saved at epoch {epoch+1} with training loss {train_loss:.6f}')
             print(f'Validation loss: {valid_loss:.6f}')

@@ -13,6 +13,7 @@ import pysal
 import numpy as np
 from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader
+from torchsummary import summary
 
 from modules_DANRA_conditional import *
 from diffusion_DANRA_conditional import DiffusionUtils
@@ -217,6 +218,7 @@ if __name__ == '__main__':
     learning_rate = 3e-4 #1e-2
     min_lr = 1e-6
     weight_decay = 0.0
+    loss_type = 'sdfweighted'#'simple'#'simple'#
 
 
     # Define diffusion hyperparameters
@@ -226,22 +228,40 @@ if __name__ == '__main__':
     beta_scheduler = 'linear'
 
     # Create evaluation dataset
-    eval_dataset = DANRA_Dataset_cutouts_ERA5_Zarr(data_dir_zarr=data_dir_danra_eval_w_cutouts_zarr,
-                                                data_size = image_size,
-                                                n_samples = n_samples,
-                                                cache_size = cache_size,
-                                                variable=var,
-                                                scale=False,
-                                                shuffle=True,
-                                                conditional=True,
-                                                cond_dir_zarr=data_dir_era5_eval_zarr,
-                                                n_classes=n_seasons,
-                                                cutouts=CUTOUTS,
-                                                cutout_domains=CUTOUT_DOMAINS,
-                                                lsm_full_domain=data_lsm_full,
-                                                topo_full_domain=data_topo_full,
-                                                sdf_weighted_loss = False
-                                                )
+    if loss_type == 'sdfweighted':
+        eval_dataset = DANRA_Dataset_cutouts_ERA5_Zarr(data_dir_zarr=data_dir_danra_eval_w_cutouts_zarr,
+                                                    data_size = image_size,
+                                                    n_samples = n_samples,
+                                                    cache_size = cache_size,
+                                                    variable=var,
+                                                    scale=False,
+                                                    shuffle=True,
+                                                    conditional=True,
+                                                    cond_dir_zarr=data_dir_era5_eval_zarr,
+                                                    n_classes=n_seasons,
+                                                    cutouts=CUTOUTS,
+                                                    cutout_domains=CUTOUT_DOMAINS,
+                                                    lsm_full_domain=data_lsm_full,
+                                                    topo_full_domain=data_topo_full,
+                                                    sdf_weighted_loss = True
+                                                    )
+    else:
+        eval_dataset = DANRA_Dataset_cutouts_ERA5_Zarr(data_dir_zarr=data_dir_danra_eval_w_cutouts_zarr,
+                                                    data_size = image_size,
+                                                    n_samples = n_samples,
+                                                    cache_size = cache_size,
+                                                    variable=var,
+                                                    scale=False,
+                                                    shuffle=True,
+                                                    conditional=True,
+                                                    cond_dir_zarr=data_dir_era5_eval_zarr,
+                                                    n_classes=n_seasons,
+                                                    cutouts=CUTOUTS,
+                                                    cutout_domains=CUTOUT_DOMAINS,
+                                                    lsm_full_domain=data_lsm_full,
+                                                    topo_full_domain=data_topo_full,
+                                                    sdf_weighted_loss = False
+                                                    )
 
 
     # Preprocess lsm and topography (normalize and reshape, resizes to image_size)
@@ -277,7 +297,7 @@ if __name__ == '__main__':
     diffusion_utils = DiffusionUtils(n_timesteps, beta_min, beta_max, device, beta_scheduler)
 
 
-    loss_type = 'simple'#'sdf_weighted'#'simple'#
+    
     # Define the loss function
     if loss_type == 'simple':
         lossfunc = SimpleLoss()
@@ -321,7 +341,7 @@ if __name__ == '__main__':
     # Define path to model checkpoint
     image_dim = danra_size
     im_dim_str = str(image_dim) + 'x' + str(image_dim)
-    cond_str = 'ERA5_cond_lsm_topo_random__' + loss_type + '__' + str(n_seasons) + '_seasons' + '_ValidSplitInTime_9yrs'
+    cond_str = 'ERA5_cond_lsm_topo_random__' + loss_type + '__' + str(n_seasons) + '_seasons' + '_ValidSplitInTime_9yrs_ValLoss'
     var_str = var
     model_str = 'DDPM_conditional_ERA5'
     checkpoint_dir = "/Users/au728490/Documents/PhD_AU/Python_Scripts/ModelCheckpoints/LUMI_trained_models"
@@ -338,6 +358,13 @@ if __name__ == '__main__':
     # Load best state model into model
     pipeline.model.load_state_dict(best_model_state)
     pipeline.model.eval()
+
+    # Print the summary of the model
+    print('\n\nModel summary:')
+    #x, t, y, cond_img, lsm_cond, topo_cond
+    # input_size_summary = (input_channels, image_size[0], image_size[1]), (1,), (1,), (1, image_size[0], image_size[1]), (1, image_size[0], image_size[1]), (1, image_size[0], image_size[1])
+    # summary(model, input_size=[input_size_summary], batch_size=batch_size, device=device)
+
 
     print("Generating samples...")
 

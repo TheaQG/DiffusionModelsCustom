@@ -834,6 +834,7 @@ class TrainingPipeline_ERA5_Condition:
                     ax3s[0, i].set_ylim([0, lsm_im.shape[1]])
                     ax3s[1, i].imshow(topo_im.permute(1,2,0).cpu().detach().numpy())
                     ax3s[1, i].set_ylim([0, topo_im.shape[1]])
+                    i += 1
                 fig3.tight_layout()
 
                 

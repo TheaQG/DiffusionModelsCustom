@@ -4,18 +4,18 @@
     Different transforms are be applied to the dataset.
     A custom transform is used to scale the data to a new interval.
 """
+
 # Import libraries and modules 
+import zarr
 import os, random, torch
 import numpy as np
+import multiprocessing
+import matplotlib.pyplot as plt
+import netCDF4 as nc
 from torch.utils.data import Dataset
 from torchvision import transforms
-import matplotlib.pyplot as plt
-import multiprocessing
-#from multiprocessing import Manager as SharedMemoryManager
-import netCDF4 as nc
 from multiprocessing import freeze_support
 from scipy.ndimage import distance_transform_edt as distance
-import zarr
 
 def preprocess_lsm_topography(lsm_path, topo_path, target_size, scale=False, flip=False):
     '''
@@ -284,7 +284,19 @@ class DANRA_Dataset(Dataset):
             - Scale: scales the data to a new interval
 
     '''
-    def __init__(self, data_dir:str, data_size:tuple, n_samples:int=365, cache_size:int=365, scale:bool=True, shuffle:bool=False,in_low=-1, in_high=1, data_min_in=-30, data_max_in=30, conditional:bool=True, n_classes:int=4):
+    def __init__(self,
+                 data_dir:str,
+                 data_size:tuple,
+                 n_samples:int=365,
+                 cache_size:int=365,
+                 scale:bool=True,
+                 shuffle:bool=False,
+                 in_low=-1,
+                 in_high=1,
+                 data_min_in=-30,
+                 data_max_in=30,
+                 conditional:bool=True,
+                 n_classes:int=4):
         '''
             Initialize the class.
             Input:

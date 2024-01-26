@@ -26,6 +26,7 @@ class SinusoidalEmbedding(nn.Module):
             Input:
                 - dim_size: size of the embedding
                 - n: number of sinusoids
+            
         '''
 
         # Check if dim_size is even
@@ -53,7 +54,6 @@ class SinusoidalEmbedding(nn.Module):
         # Loop over the input
         for idx in range(0,N):
             for i in range(0, self.dim_size//2):
-                # Calculate the embedding 
                 emb = x[idx] / (self.n ** (2*i / self.dim_size))
                 # Calculate the sinusoidal embedding
                 output[idx, 2*i] = torch.sin(emb)

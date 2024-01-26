@@ -39,7 +39,7 @@ if __name__ == '__main__':
     # Set variable for use
     var = 'temp'#'prcp'# 
     # Set size of DANRA images
-    n_danra_size = 64# 256#
+    n_danra_size = 128# 256#
     # Set DANRA size string for use in path
     danra_size_str = '589x789'#str(n_danra_size) + 'x' + str(n_danra_size)
     
@@ -98,7 +98,7 @@ if __name__ == '__main__':
     output_channels = 1
 
     n_samples_train = n_files_train
-    cache_size_train = n_files_train//2
+    cache_size_train = n_files_train//8
 
     n_samples_valid = n_files_valid
     cache_size_valid = n_files_valid
@@ -171,6 +171,7 @@ if __name__ == '__main__':
     epochs = 200
     batch_size = 32
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    print(f'\n\n\nDevice: {device}\n\n\n')
     first_fmap_channels = 64#n_danra_size #
     last_fmap_channels = 512 #2048
     time_embedding = 256
@@ -460,12 +461,13 @@ if __name__ == '__main__':
         valid_losses.append(valid_loss)
 
         # # Print train and valid loss
-        print(f'\n\nTraining Loss: {train_loss:.6f}\n\n')
-        print(f'Validation Loss: {valid_loss:.6f}\n\n')
+        if valid_loss > best_loss:
+            print(f'\n\nTraining Loss: {train_loss:.6f}\n\n')
+            print(f'Validation Loss: {valid_loss:.6f}\n\n')
 
         # If valid loss is better than best loss, save model
-        if valid_loss < best_loss:
-            best_loss = valid_loss
+        if train_loss < best_loss:
+            best_loss = train_loss
             pipeline.save_model(checkpoint_dir, checkpoint_name)
             print(f'Model saved at epoch {epoch+1} with training loss {train_loss:.6f}')
             print(f'Validation loss: {valid_loss:.6f}')

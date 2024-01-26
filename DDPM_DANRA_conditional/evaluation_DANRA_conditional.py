@@ -14,7 +14,7 @@ if __name__ == '__main__':
     print('\n\n')
 
     var = 'temp'
-    loss_type = 'simple'
+    loss_type = 'sdfweighted'
     danra_size = 64
     n_seasons = 4
     n_samples_gen = 100

@@ -75,8 +75,8 @@ if __name__ == '__main__':
 
 
     # Testing the function
-    split_list = ['train', 'valid', 'test']
-    var_list = ['temp', 'prcp']
+    split_list = ['test']#['train', 'valid', 'test']
+    var_list = ['temp']#['temp', 'prcp']
     model_list = ['DANRA', 'ERA5']
     lumi_data_dir = '/scratch/project_465000568/data_'
     danra_size_str = '589x789'

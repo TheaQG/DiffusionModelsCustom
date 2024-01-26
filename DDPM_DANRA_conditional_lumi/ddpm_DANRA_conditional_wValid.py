@@ -14,7 +14,7 @@ import numpy as np
 
 from torch.utils.data import DataLoader
 from matplotlib import pyplot as plt
-
+from torchsummary import summary
 
 # Import objects from other files in this repository
 from data_DANRA_conditional import  DANRA_Dataset_cutouts_ERA5_Zarr, preprocess_lsm_topography
@@ -126,7 +126,7 @@ if __name__ == '__main__':
 
     # Define strings for use in path
     im_dim_str = str(image_dim) + 'x' + str(image_dim)
-    cond_str = 'ERA5_cond_lsm_topo_random__' + loss_type + '__' + str(n_seasons) + '_seasons' + '_ValidSplitInTime_9yrs'
+    cond_str = 'ERA5_cond_lsm_topo_random__' + loss_type + '__' + str(n_seasons) + '_seasons' + '_ValidSplitInTime_9yrs_ValLoss'
     var_str = var
     model_str = 'DDPM_conditional_ERA5'
     # Set path to save figures
@@ -419,7 +419,7 @@ if __name__ == '__main__':
         print(f'Shape of season embedding: {y_test.shape}')
         test = pipeline.model(test_input, t_test, y_test, cond_img=cond_img, lsm_cond=lsm_test, topo_cond=topo_test)
 
-        
+        # Print the shapes of the different tensors
         print(f'Output shape of test: {test.shape}')
         print('\n')
         print('Number of parameters: ' + str(sum([i.numel() for i in pipeline.model.parameters()])))
@@ -460,13 +460,12 @@ if __name__ == '__main__':
         valid_losses.append(valid_loss)
 
         # # Print train and valid loss
-        if valid_loss > best_loss:
-            print(f'\n\nTraining Loss: {train_loss:.6f}\n\n')
-            print(f'Validation Loss: {valid_loss:.6f}\n\n')
+        print(f'\n\nTraining Loss: {train_loss:.6f}\n\n')
+        print(f'Validation Loss: {valid_loss:.6f}\n\n')
 
         # If valid loss is better than best loss, save model
-        if train_loss < best_loss:
-            best_loss = train_loss
+        if valid_loss < best_loss:
+            best_loss = valid_loss
             pipeline.save_model(checkpoint_dir, checkpoint_name)
             print(f'Model saved at epoch {epoch+1} with training loss {train_loss:.6f}')
             print(f'Validation loss: {valid_loss:.6f}')

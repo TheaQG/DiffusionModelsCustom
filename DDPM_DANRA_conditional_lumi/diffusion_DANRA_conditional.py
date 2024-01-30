@@ -16,7 +16,13 @@ class DiffusionUtils:
         The class is based on the implementation of the paper: 
         Diffusion is gaussian.
     '''
-    def __init__(self, n_timesteps:int, beta_min:float, beta_max:float, device:str='cpu', scheduler:str='linear'):
+    def __init__(self,
+                 n_timesteps:int,
+                 beta_min:float,
+                 beta_max:float,
+                 device:str='cpu',
+                 scheduler:str='linear'
+                 ):
         '''
             Initialize the class.
             Input:
@@ -43,6 +49,11 @@ class DiffusionUtils:
         self.alphas = 1 - self.betas
         # Set alpha_hat as cumulative product of alphas
         self.alpha_hat = torch.cumprod(self.alphas, dim=0)
+
+        # Send tensors to device
+        self.betas = self.betas.to(self.device)
+        self.alphas = self.alphas.to(self.device)
+        self.alpha_hat = self.alpha_hat.to(self.device)
 
     def betaSamples(self):
         '''
@@ -96,7 +107,13 @@ class DiffusionUtils:
         # Return noise as defined in paper, and noise
         return (alpha_hat_sqrts * x) + (one_minus_alpha_hat_sqrt * noise), noise
     
-    def sample(self, x:torch.Tensor, model:nn.Module, y:torch.Tensor=None, cond_img:torch.Tensor=None, lsm_cond:torch.Tensor=None, topo_cond:torch.Tensor=None):
+    def sample(self,
+               x:torch.Tensor,
+               model:nn.Module,
+               y:torch.Tensor=None,
+               cond_img:torch.Tensor=None,
+               lsm_cond:torch.Tensor=None,
+               topo_cond:torch.Tensor=None):
         '''
             Function for sampling from diffusion process.
             Input:
@@ -127,11 +144,7 @@ class DiffusionUtils:
                 one_minus_alpha_hat = 1 - alpha_hat
 
                 # Set predicted noise as output from model
-
-                if y is None:
-                    predicted_noise = model(x, t)
-                else:
-                    predicted_noise = model(x, t, y, cond_img, lsm_cond, topo_cond)
+                predicted_noise = model(x, t, y, cond_img, lsm_cond, topo_cond)
 
                 # Sample noise from gaussian distribution or set to zero if timestep is 1
                 if i > 1:
@@ -139,7 +152,7 @@ class DiffusionUtils:
                 else:
                     noise = torch.zeros_like(x).to(self.device)
 
-                # Set x as defined in paper
+                # Compute x based on the predicted noise
                 x = (1 / torch.sqrt(alpha)) * (x - ((one_minus_alpha) / torch.sqrt(one_minus_alpha_hat)) * predicted_noise)
                 # Add noise to x
                 x = x + (torch.sqrt(beta) * noise)

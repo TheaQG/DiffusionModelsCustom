@@ -21,7 +21,7 @@ if __name__ == '__main__':
 
     image_dim = danra_size
     im_dim_str = str(image_dim) + 'x' + str(image_dim)
-    cond_str = 'ERA5_cond_lsm_topo_random__' + loss_type + '__' + str(n_seasons) + '_seasons' + '_ValidSplitInTime_9yrs'
+    cond_str = 'ERA5_cond_lsm_topo_random__' + loss_type + '__' + str(n_seasons) + '_seasons' + '_ValidSplitInTime_9yrs_ValLoss'
     var_str = var
     model_str = 'DDPM_conditional_ERA5'
     SAVE_PATH = '/Users/au728490/Documents/PhD_AU/Python_Scripts/DiffusionModels/DDPM_DANRA_conditional/final_generated_samples/'

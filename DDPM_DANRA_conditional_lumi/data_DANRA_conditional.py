@@ -34,7 +34,6 @@ def preprocess_lsm_topography(lsm_path, topo_path, target_size, scale=False, fli
     else:
         lsm_data = np.load(lsm_path)['data']
         topo_data = np.load(topo_path)['data']
-    print(lsm_data.shape)
 
     # 2. Convert to Tensors
     lsm_tensor = torch.tensor(lsm_data).float().unsqueeze(0)  # Add channel dimension
@@ -101,102 +100,19 @@ def normalize_sdf(sdf):
     return sdf_normalized
 
 class DateFromFile:
+    '''
+    General class for extracting date from filename.
+    Can take .npz, .nc and .zarr files.
+    Not dependent on the file extension.
+    '''
     def __init__(self, filename):
-        self.filename = filename
-        self.year = int(self.filename[-12:-8])
-        self.month = int(self.filename[-8:-6])
-        self.day = int(self.filename[-6:-4])
-
-    def determine_season(self):
-        # Determine season based on month
-        if self.month in [3, 4, 5]:
-            return 0
-        elif self.month in [6, 7, 8]:
-            return 1
-        elif self.month in [9, 10, 11]:
-            return 2
-        else:
-            return 3
-
-    def determine_month(self):
-        # Returns the month as an integer in the interval [0, 11]
-        return self.month - 1
-
-    @staticmethod
-    def is_leap_year(year):
-        """Check if a year is a leap year"""
-        if (year % 4 == 0 and year % 100 != 0) or (year % 400 == 0):
-            return True
-        return False
-
-    def determine_day(self):
-        # Days in month for common years and leap years
-        days_in_month_common = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-        days_in_month_leap = [0, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-
-        # Determine if the year is a leap year
-        if self.is_leap_year(self.year):
-            days_in_month = days_in_month_leap
-        else:
-            days_in_month = days_in_month_common
-
-        # Compute the day of the year
-        day_of_year = sum(days_in_month[:self.month]) + self.day - 1  # "-1" because if it's January 1st, it's the 0th day of the year
-        return day_of_year
-
-
-class DateFromFile_nc:
-    def __init__(self, filename):
-        self.filename = filename
-        self.year = int(self.filename[-11:-7])
-        self.month = int(self.filename[-7:-5])
-        self.day = int(self.filename[-5:-3])
-
-
-    def determine_season(self):
-        # Determine season based on month
-        if self.month in [3, 4, 5]:
-            return 0
-        elif self.month in [6, 7, 8]:
-            return 1
-        elif self.month in [9, 10, 11]:
-            return 2
-        else:
-            return 3
-
-    def determine_month(self):
-        # Returns the month as an integer in the interval [0, 11]
-        return self.month - 1
-
-    @staticmethod
-    def is_leap_year(year):
-        """Check if a year is a leap year"""
-        if (year % 4 == 0 and year % 100 != 0) or (year % 400 == 0):
-            return True
-        return False
-
-    def determine_day(self):
-        # Days in month for common years and leap years
-        days_in_month_common = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-        days_in_month_leap = [0, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-
-        # Determine if the year is a leap year
-        if self.is_leap_year(self.year):
-            days_in_month = days_in_month_leap
-        else:
-            days_in_month = days_in_month_common
-
-        # Compute the day of the year
-        day_of_year = sum(days_in_month[:self.month]) + self.day - 1  # "-1" because if it's January 1st, it's the 0th day of the year
-        return day_of_year
-    
-class DateFromFile_zarr:
-    def __init__(self, filename):
-        self.filename = filename
+        # Remove file extension
+        self.filename = filename.split('.')[0]
+        # Get the year, month and day from filename ending (YYYYMMDD)
         self.year = int(self.filename[-8:-4])
         self.month = int(self.filename[-4:-2])
         self.day = int(self.filename[-2:])
-        
+
     def determine_season(self):
         # Determine season based on month
         if self.month in [3, 4, 5]:
@@ -233,6 +149,9 @@ class DateFromFile_zarr:
         # Compute the day of the year
         day_of_year = sum(days_in_month[:self.month]) + self.day - 1  # "-1" because if it's January 1st, it's the 0th day of the year
         return day_of_year
+
+
+
 
 def find_rand_points(rect, crop_dim):
     '''
@@ -316,27 +235,27 @@ class DANRA_Dataset_cutouts_ERA5_Zarr(Dataset):
                 n_samples:int=365,                  # Number of samples to load
                 cache_size:int=365,                 # Number of samples to cache
                 variable:str='temp',                # Variable to load (temp or prcp)
-                shuffle=False,                      # Whether to shuffle data (or load sequentially)
-                cutouts = False,                    # Whether to use cutouts 
-                cutout_domains = None,              # Domains to use for cutouts
-                n_samples_w_cutouts = None,         # Number of samples to load with cutouts (can be greater than n_samples)
+                shuffle:bool = False,               # Whether to shuffle data (or load sequentially)
+                cutouts:bool = False,               # Whether to use cutouts 
+                cutout_domains:list = None,         # Domains to use for cutouts
+                n_samples_w_cutouts:int = None,     # Number of samples to load with cutouts (can be greater than n_samples)
                 lsm_full_domain = None,             # Land-sea mask of full domain
                 topo_full_domain = None,            # Topography of full domain
-                sdf_weighted_loss = False,          # Whether to use weighted loss for SDF
-                scale=True,                         # Whether to scale data to new interval
-                in_low=-1,                          # Lower bound of new interval
-                in_high=1,                          # Upper bound of new interval
-                data_min_in=-30,                    # Lower bound of data interval
-                data_max_in=30,                     # Upper bound of data interval
-                conditional=True,                   # Whether to use conditional sampling
+                sdf_weighted_loss:bool = False,     # Whether to use weighted loss for SDF
+                scale:bool = True,                  # Whether to scale data to new interval
+                in_low:float = -1,                  # Lower bound of new interval
+                in_high:float = 1,                  # Upper bound of new interval
+                data_min_in:float = -30,            # Lower bound of data interval
+                data_max_in:float = 30,             # Upper bound of data interval
+                conditional_seasons:bool = True,    # Whether to use seasonal conditional sampling
+                conditional_images:bool = True,     # Whether to use ERA5/image conditional sampling
                 cond_dir_zarr:str=None,             # Path to directory containing conditional data
-                n_classes=4                         # Number of classes for conditional sampling
+                n_classes:int = None                # Number of classes for conditional sampling
                 ):                       
         '''n_samples_w_cutouts
 
         '''
         self.data_dir_zarr = data_dir_zarr
-        #self.zarr_group_img = zarr_group_img
         self.n_samples = n_samples
         self.data_size = data_size
         self.cache_size = cache_size
@@ -356,53 +275,93 @@ class DANRA_Dataset_cutouts_ERA5_Zarr(Dataset):
         self.in_high = in_high
         self.data_min_in = data_min_in
         self.data_max_in = data_max_in
-        self.conditional = conditional
+        self.conditional_seasons = conditional_seasons
+        self.conditional_images = conditional_images
         self.cond_dir_zarr = cond_dir_zarr
-        #self.zarr_group_cond = zarr_group_cond
         self.n_classes = n_classes
 
         # Make zarr groups of data
         self.zarr_group_img = zarr.open_group(data_dir_zarr, mode='r')
-        self.zarr_group_cond = zarr.open_group(cond_dir_zarr)
 
         # Load files from directory (both data and conditional data)
         self.files = list(self.zarr_group_img.keys())
         
-        if self.conditional:
-            self.files_cond = list(self.zarr_group_cond.keys())
+        if self.conditional_images:
+            # If no conditional images are used, use mean of samples as conditional image
+            if self.cond_dir_zarr is None:
+                self.files_cond = self.files
+            # If using individual samples as conditional images
+            else:
+                self.zarr_group_cond = zarr.open_group(cond_dir_zarr)
+                self.files_cond = list(self.zarr_group_cond.keys())
 
-        # Sample n_samples from files, either randomly or sequentially
+        # If not using cutouts, no possibility to sample more than n_samples
         if self.cutouts == False:
+            # If shuffle is True, sample n_samples randomly
             if self.shuffle:
                 n_samples = min(len(self.files), len(self.files_cond))
                 random_idx = random.sample(range(n_samples), n_samples)
                 self.files = [self.files[i] for i in random_idx]
-                if self.conditional:
-                    self.files_cond = [self.files_cond[i] for i in random_idx]
+                # If using conditional images, also sample conditional images randomly
+                if self.conditional_images:
+                    # If no conditional images are used, use mean of samples as conditional image
+                    if self.cond_dir_zarr is None:
+                        self.files_cond = [self.files[i] for i in random_idx]
+                    # If using individual samples as conditional images
+                    else:
+                        self.files_cond = [self.files_cond[i] for i in random_idx]
+            # If shuffle is False, sample n_samples sequentially
             else:
                 self.files = self.files[0:n_samples]
-                if self.conditional:
-                    self.files_cond = self.files_cond[0:n_samples]
+                # If using conditional images, also sample conditional images sequentially
+                if self.conditional_images:
+                    # If no conditional images are used, use mean of samples as conditional image
+                    if self.cond_dir_zarr is None:
+                        self.files_cond = self.files[0:n_samples]
+                    # If using individual samples as conditional images
+                    else:
+                        self.files_cond = self.files_cond[0:n_samples]
+
+
+        # If using cutouts, possibility to sample more than n_samples
         else:
+            # If shuffle is True, sample n_samples randomly
             if self.shuffle:
-                n_samples = min(len(self.files), len(self.files_cond))
+                # If no conditional samples are given, n_samples equal to length of files
+                if self.cond_dir_zarr is None:
+                    n_samples = len(self.files)
+                # Else n_samples equal to min val of length of files and length of conditional files
+                else:
+                    n_samples = min(len(self.files), len(self.files_cond))
                 random_idx = random.sample(range(n_samples), self.n_samples_w_cutouts)
                 self.files = [self.files[i] for i in random_idx]
-                if self.conditional:
-                    self.files_cond = [self.files_cond[i] for i in random_idx]
+                if self.conditional_images:
+                    # If no conditional images are used, use mean of samples as conditional image
+                    if self.cond_dir_zarr is None:
+                        self.files_cond = [self.files[i] for i in random_idx]
+                    # If using individual samples as conditional images
+                    else:
+                        self.files_cond = [self.files_cond[i] for i in random_idx]
+            # If shuffle is False, sample n_samples sequentially
             else:
                 n_individual_samples = len(self.files)
                 factor = int(np.ceil(self.n_samples_w_cutouts/n_individual_samples))
                 self.files = self.files*factor
                 self.files = self.files[0:self.n_samples_w_cutouts]
-                if self.conditional:
-                    self.files_cond = self.files_cond*factor
-                    self.files_cond = self.files_cond[0:self.n_samples_w_cutouts]
-        
+                if self.conditional_images:
+                    # If no conditional images are used, use mean of samples as conditional image
+                    if self.cond_dir_zarr is None:
+                        self.files_cond = self.files*factor
+                        self.files_cond = self.files_cond[0:self.n_samples_w_cutouts]
+                    # If using individual samples as conditional images
+                    else:
+                        self.files_cond = self.files_cond*factor
+                        self.files_cond = self.files_cond[0:self.n_samples_w_cutouts]
+   
         # Set cache for data loading - if cache_size is 0, no caching is used
         self.cache = multiprocessing.Manager().dict()
-        # #self.cache = SharedMemoryManager().dict()
         
+
         # Set transforms
         if scale:
             self.transforms = transforms.Compose([
@@ -415,12 +374,7 @@ class DANRA_Dataset_cutouts_ERA5_Zarr(Dataset):
                 transforms.ToTensor(),
                 transforms.Resize(self.data_size, antialias=True)
                 ])
-        def __len__(self):
-            '''
-                Return the length of the dataset.
-            '''
-            return len(self.files)
-        
+            
     def __len__(self):
         '''
             Return the length of the dataset.
@@ -456,61 +410,69 @@ class DANRA_Dataset_cutouts_ERA5_Zarr(Dataset):
                 - idx: index of item to get
         '''
 
-        # Get file path, join directory and file name
-        # file_path = os.path.join(self.data_dir, self.files[idx])
+        # Get file name
         file_name = self.files[idx]
 
-        # file_path_cond = os.path.join(self.data_dir_cond, self.files_cond[idx])
-        file_name_cond = self.files_cond[idx]
-        if self.conditional:
-            
-            if self.n_classes == 4:
-                # Determine class from filename
-                dateObj = DateFromFile_zarr(file_name)
-                classifier = dateObj.determine_season()
-            
-            elif self.n_classes == 12:
-                # Determine class from filename
-                dateObj = DateFromFile_zarr(file_name)
-                classifier = dateObj.determine_month()
-
-            elif self.n_classes == 366:
-                # Determine class from filename
-                dateObj = DateFromFile_zarr(file_name)
-                classifier = dateObj.determine_day()
-
+        # Check if conditional sampling on season is used
+        if self.conditional_seasons:
+            if self.cond_dir_zarr is None:
+                # Set file names to file names of truth data
+                file_name_cond = self.files[idx]
             else:
-                raise ValueError('n_classes must be 4, 12 or 365')
-            
-            # # Convert classifier to one-hot encoding
-            # class_idx = torch.tensor(classifier)
-            # classifier = torch.zeros(self.n_classes)
-            # classifier[class_idx] = 1            
+                file_name_cond = self.files_cond[idx]
 
+            # Determine class from filename
+            if self.n_classes is not None:
+                # Seasonal condittion
+                if self.n_classes == 4:
+                    dateObj = DateFromFile(file_name)
+                    classifier = dateObj.determine_season()
+                    
+                # Monthly condition
+                elif self.n_classes == 12:
+                    dateObj = DateFromFile(file_name)
+                    classifier = dateObj.determine_month()
+                
+                # Daily condition
+                elif self.n_classes == 366:
+                    dateObj = DateFromFile(file_name)
+                    classifier = dateObj.determine_day()
+
+                else:
+                    raise ValueError('n_classes must be 4, 12 or 365')
+                
             classifier = torch.tensor(classifier)
         
-        elif not self.conditional:
+        elif not self.conditional_seasons:
             # Set classifier to None
             classifier = None
         else:
-            raise ValueError('conditional must be True or False')
+            raise ValueError('conditional_seasons must be True or False')
 
 
-
-        # Load image from file and subtract 273.15 to convert from Kelvin to Celsius
-
-        # Define zarr groups (img and cond)
-        # zarr_group_img = zarr.open_group(self.data_dir_zarr, mode='r')
-        # zarr_group_cond = zarr.open_group(self.data_dir_cond_zarr, mode='r')
 
         # Load data from zarr files, either temp or prcp
         if self.variable == 'temp':
             img = self.zarr_group_img[file_name]['t'][()][0,0,:,:] - 273.15
-            img_cond = self.zarr_group_cond[file_name_cond]['arr_0'][()][:,:] - 273.15
+            if self.conditional_images:
+                if self.cond_dir_zarr is None:
+                    # Compute the mean of sample 
+                    mu = np.mean(img)
+                    # Create conditional image with mean value
+                    img_cond = np.ones(img.shape)*mu
+                else:
+                    img_cond = self.zarr_group_cond[file_name_cond]['arr_0'][()][:,:] - 273.15
 
         elif self.variable == 'prcp':
             img = self.zarr_group_img[file_name]['tp'][()][0,0,:,:] 
-            img_cond = self.zarr_group_cond[file_name_cond]['arr_0'][()][:,:]
+            if self.conditional_images:
+                if self.cond_dir_zarr is None:
+                    # Compute the mean of sample
+                    mu = np.mean(img)
+                    # Create conditional image with mean value
+                    img_cond = np.ones(img.shape)*mu
+                else:
+                    img_cond = self.zarr_group_cond[file_name_cond]['arr_0'][()][:,:]
 
 
         if self.cutouts:
@@ -518,13 +480,17 @@ class DANRA_Dataset_cutouts_ERA5_Zarr(Dataset):
             point = find_rand_points(self.cutout_domains, 128)
             # Crop image, lsm and topo
             img = img[point[0]:point[1], point[2]:point[3]]
-            lsm_use = self.lsm_full_domain[point[0]:point[1], point[2]:point[3]]
-            topo_use = self.topo_full_domain[point[0]:point[1], point[2]:point[3]]
+
+            if self.lsm_full_domain is not None:
+                lsm_use = self.lsm_full_domain[point[0]:point[1], point[2]:point[3]]
+            if self.topo_full_domain is not None:
+                topo_use = self.topo_full_domain[point[0]:point[1], point[2]:point[3]]
+    
             if self.sdf_weighted_loss:
                 sdf_use = generate_sdf(lsm_use)
                 sdf_use = normalize_sdf(sdf_use)
 
-            if self.conditional:
+            if self.conditional_images:
                 img_cond = img_cond[point[0]:point[1], point[2]:point[3]]
         else:
             point = None
@@ -534,35 +500,68 @@ class DANRA_Dataset_cutouts_ERA5_Zarr(Dataset):
             img = self.transforms(img)
 
             if self.cutouts:
-                lsm_use = self.transforms(lsm_use.copy())
-                topo_use = self.transforms(topo_use.copy())
+                if self.lsm_full_domain is not None:
+                    lsm_use = self.transforms(lsm_use.copy())
+                if self.topo_full_domain is not None:
+                    topo_use = self.transforms(topo_use.copy())
                 if self.sdf_weighted_loss:
                     sdf_use = self.transforms(sdf_use.copy())
 
-            if self.conditional:
+            if self.conditional_images:
                 img_cond = self.transforms(img_cond)
 
-        if self.conditional:
+        if self.conditional_images:
             # Return sample image and classifier
-            sample = (img, classifier, img_cond)
-        else:   
-            # Return sample image
+            if self.conditional_seasons:
+                # Make a dict with image and conditions
+                sample_dict = {'img':img, 'classifier':classifier, 'img_cond':img_cond}
+                #sample = (img, classifier, img_cond)
+            else:
+                # Make a dict with image and conditions
+                sample_dict = {'img':img, 'img_cond':img_cond}
+                #sample = (img, img_cond)
+        else:
+            # Return sample image as dict
+            sample_dict = {'img':img}
             sample = (img)
         
         # Add item to cache
-        self._addToCache(idx, sample)
+        self._addToCache(idx, sample_dict)
 
         
+        # Return data based on whether cutouts are used or not
         if self.cutouts:
+            # If sdf weighted loss is used, add sdf to return
             if self.sdf_weighted_loss:
-                # Return sample image and classifier and random point for cropping (lsm and topo)
-                return sample, lsm_use, topo_use, sdf_use, point
+                # Make sure lsm and topo also provided, otherwise raise error
+                if self.lsm_full_domain is not None and self.topo_full_domain is not None:
+                    # Add lsm, sdf, topo and point to dict
+                    sample_dict['lsm'] = lsm_use
+                    sample_dict['sdf'] = sdf_use
+                    sample_dict['topo'] = topo_use
+                    sample_dict['points'] = point
+                    # Return sample image and classifier and random point for cropping (lsm and topo)
+                    return sample_dict #sample, lsm_use, topo_use, sdf_use, point
+                else:
+                    raise ValueError('lsm_full_domain and topo_full_domain must be provided if sdf_weighted_loss is True')
+            # If sdf weighted loss is not used, only return lsm and topo if they are provided
             else:
-                # Return sample image and classifier and random point for cropping (lsm and topo)
-                return sample, lsm_use, topo_use, point
+                # Return lsm and topo if provided
+                if self.lsm_full_domain is not None and self.topo_full_domain is not None:
+                    # Add lsm, topo and point to dict
+                    sample_dict['lsm'] = lsm_use
+                    sample_dict['topo'] = topo_use
+                    sample_dict['points'] = point
+                    # Return sample image and classifier and random point for cropping (lsm and topo)
+                    return sample_dict #sample, lsm_use, topo_use, point
+                # If lsm and topo not provided, only return sample and point
+                else:
+                    # Add point to dict
+                    sample_dict['points'] = point
+                    return sample_dict #sample, point
         else:
             # Return sample image and classifier only
-            return sample
+            return sample_dict #sample
     
     def __name__(self, idx:int):
         '''

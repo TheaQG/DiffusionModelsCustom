@@ -67,7 +67,7 @@ class SinusoidalEmbedding(nn.Module):
 class ImageSelfAttention(nn.Module):
     ''' 
         Class for image self-attention. Self-attention is a mechanism that allows the model to focus on more important features.
-        
+        Focus on one thing and ignore other things that seem irrelevant at the moment.
     '''
     def __init__(self, input_channels:int, n_heads:int):
         '''
@@ -120,8 +120,17 @@ class Encoder(ResNet):
         The encoder consists of five feature maps, one for each layer of the ResNet.
         The encoder works as a downsample block, and will be used to downsample the input.
     '''
-    def __init__(self, input_channels:int, time_embedding:int, 
-        block=BasicBlock, block_layers:list=[2, 2, 2, 2], n_heads:int=4, num_classes:int=None, lsm_tensor=None, topo_tensor=None, cond_on_img=None, cond_img_dim = None):
+    def __init__(self,
+                 input_channels:int,
+                 time_embedding:int,
+                 block=BasicBlock,
+                 block_layers:list=[2, 2, 2, 2],
+                 n_heads:int=4,
+                 num_classes:int=None,
+                 lsm_tensor=None,
+                 topo_tensor=None,
+                 cond_on_img=False,
+                 cond_img_dim = None):
         '''
             Initialize the class. 
             Input:
@@ -200,11 +209,11 @@ class Encoder(ResNet):
         return pos_enc
 
     def forward(self, 
-                x:torch.Tensor, 
-                t:torch.Tensor, 
-                y:torch.Tensor, 
-                cond_img:Optional[torch.Tensor]=None, 
-                lsm_cond:Optional[torch.Tensor]=None, 
+                x:torch.Tensor,
+                t:torch.Tensor,
+                y:Optional[torch.Tensor]=None,
+                cond_img:Optional[torch.Tensor]=None,
+                lsm_cond:Optional[torch.Tensor]=None,
                 topo_cond:Optional[torch.Tensor]=None
                 ):
         '''
@@ -342,9 +351,15 @@ class DecoderBlock(nn.Module):
         The decoder block works as an upsample block, and will be used to upsample the input.
     '''
     def __init__(
-        self, input_channels:int, output_channels:int, 
-        time_embedding:int, upsample_scale:int=2, activation:nn.Module=nn.ReLU,
-        compute_attn:bool=True, n_heads:int=4):
+            self,
+            input_channels:int,
+            output_channels:int,
+            time_embedding:int,
+            upsample_scale:int=2,
+            activation:nn.Module=nn.ReLU,
+            compute_attn:bool=True,
+            n_heads:int=4
+            ):
         '''
             Initialize the class.
             Input:
@@ -405,7 +420,11 @@ class DecoderBlock(nn.Module):
         self.activation = activation()
 
     
-    def forward(self, fmap:torch.Tensor, prev_fmap:Optional[torch.Tensor]=None, t:Optional[torch.Tensor]=None):
+    def forward(self,
+                fmap:torch.Tensor,
+                prev_fmap:Optional[torch.Tensor]=None,
+                t:Optional[torch.Tensor]=None
+                ):
         '''
             Forward function for the class. The input fmap, previous feature map prev_fmap, and time embedding t are used to calculate the output.
             The output is the decoded input fmap.
@@ -449,8 +468,13 @@ class Decoder(nn.Module):
         The decoder works as an upsample block, and will be used to upsample the input.
     '''
     def __init__(
-        self, last_fmap_channels:int, output_channels:int, 
-        time_embedding:int, first_fmap_channels:int=64, n_heads:int=4):
+            self,
+            last_fmap_channels:int,
+            output_channels:int,
+            time_embedding:int,
+            first_fmap_channels:int=64,
+            n_heads:int=4
+            ):
         '''
             Initialize the class. 
             Input:
@@ -548,7 +572,14 @@ class DiffusionNet(nn.Module):
         Class for the diffusion net. The diffusion net is used to encode and decode the input.
         The diffusion net is a UNET with self-attention layers, and will be used for downscaling in the DDPM.
     '''
-    def __init__(self, encoder:Encoder, decoder:Decoder, lsm_tensor=None, topo_tensor=None, cond_on_img=None, cond_img_dim = None):
+    def __init__(self,
+                 encoder:Encoder,
+                 decoder:Decoder,
+                 lsm_tensor=None,
+                 topo_tensor=None,
+                 cond_on_img=False,
+                 cond_img_dim = None
+                 ):
         '''
             Initialize the class.
             Input:
@@ -562,7 +593,13 @@ class DiffusionNet(nn.Module):
         self.encoder = encoder
         self.decoder = decoder
     
-    def forward(self, x:torch.Tensor, t:torch.Tensor, y:torch.Tensor, cond_img:Optional[torch.Tensor]=None, lsm_cond:Optional[torch.Tensor]=None, topo_cond:Optional[torch.Tensor]=None):
+    def forward(self,
+                x:torch.Tensor,
+                t:torch.Tensor,
+                y:Optional[torch.Tensor]=None,
+                cond_img:Optional[torch.Tensor]=None,
+                lsm_cond:Optional[torch.Tensor]=None,
+                topo_cond:Optional[torch.Tensor]=None):
         '''
             Forward function for the class.
             Input:

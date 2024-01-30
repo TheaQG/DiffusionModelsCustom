@@ -22,6 +22,33 @@ from modules_DANRA_conditional import *
 from diffusion_DANRA_conditional import DiffusionUtils
 from training_DANRA_conditional import *
 
+def model_summary(model):
+    print("model_summary")
+    print()
+    print("Layer_name" + "\t"*7 + "Number of Parameters")
+    print("="*100)
+    model_parameters = [layer for layer in model.parameters() if layer.requires_grad]
+    layer_name = [child for child in model.children()]
+    j = 0
+    total_params = 0
+    print("\t"*10)
+    for i in layer_name:
+        print()
+        param = 0
+        try:
+            bias = (i.bias is not None)
+        except:
+            bias = False  
+        if not bias:
+            param =model_parameters[j].numel()+model_parameters[j+1].numel()
+            j = j+2
+        else:
+            param =model_parameters[j].numel()
+            j = j+1
+        print(str(i) + "\t"*3 + str(param))
+        total_params+=param
+    print("="*100)
+    print(f"Total Params:{total_params}")     
 
 if __name__ == '__main__':
     print('\n\n')
@@ -249,17 +276,15 @@ if __name__ == '__main__':
     data_lsm_full = np.flipud(np.load(PATH_LSM_FULL)['data'])
     data_topo_full = np.flipud(np.load(PATH_TOPO_FULL)['data'])
 
-
     # Define the dataset from data_DANRA_downscaling.py
-    #train_dataset = DANRA_Dataset(data_dir_danra_train, image_size, n_samples_train, cache_size_train, scale=False, shuffle=False, conditional=True, n_classes=n_seasons)
-    #valid_dataset = DANRA_Dataset(data_dir_danra_valid, image_size, n_samples_valid, cache_size_valid, scale=False, shuffle=False, conditional=True, n_classes=n_seasons)
     train_dataset = DANRA_Dataset_cutouts_ERA5_Zarr(data_dir_zarr = data_dir_danra_train_w_cutouts_zarr, 
                                             data_size = image_size, 
                                             n_samples = n_samples_train, 
                                             cache_size = cache_size_train, 
                                             scale=False, 
                                             shuffle=False, 
-                                            conditional=True,
+                                            conditional_seasons=True,
+                                            conditional_images=True,
                                             cond_dir_zarr = data_dir_era5_train_zarr,
                                             n_classes=n_seasons, 
                                             cutouts=CUTOUTS, 
@@ -274,7 +299,8 @@ if __name__ == '__main__':
                                             cache_size = cache_size_valid, 
                                             scale=False, 
                                             shuffle=False, 
-                                            conditional=True, 
+                                            conditional_seasons=True,
+                                            conditional_images=True,
                                             cond_dir_zarr=data_dir_era5_valid_zarr,
                                             n_classes=n_seasons, 
                                             cutouts=CUTOUTS, 
@@ -290,7 +316,8 @@ if __name__ == '__main__':
                                             variable=var,
                                             scale=False,
                                             shuffle=True,
-                                            conditional=True,
+                                            conditional_seasons=True,
+                                            conditional_images=True,
                                             cond_dir_zarr=data_dir_era5_test_zarr,
                                             n_classes=n_seasons,
                                             cutouts=CUTOUTS,
@@ -376,14 +403,14 @@ if __name__ == '__main__':
                                            weight_init=True
                                            )
     elif loss_type == 'sdfweighted':
-        pipeline = TrainingPipeline_ERA5_Condition(model,
-                                                   lossfunc,
-                                                   optimizer,
-                                                   diffusion_utils,
-                                                   device,
-                                                   weight_init=True,
-                                                   sdf_weighted_loss=True
-                                                   )
+        pipeline = TrainingPipeline_general(model,
+                                            lossfunc,
+                                            optimizer,
+                                            diffusion_utils,
+                                            device,
+                                            weight_init=True,
+                                            sdf_weighted_loss=True
+                                            )
     # Define the learning rate scheduler
     lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(pipeline.optimizer, 'min', factor=0.5, patience=5, verbose=True, min_lr=min_lr)
     #lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(pipeline.optimizer, max_lr=learning_rate, epochs=epochs, steps_per_epoch=len(train_dataloader), pct_start=0.3, anneal_strategy='cos', final_div_factor=300)
@@ -477,96 +504,136 @@ if __name__ == '__main__':
             print('Generating samples...')
             # Set number of samples to generate (equal to batch size of test dataloader)
             n = n_test_samples
-            fig, axs = plt.subplots(5, n, figsize=(14,9)) # Plotting truth, condition, generated, lsm and topo for n different test images
 
             for idx, samples in enumerate(test_dataloader):
-                if loss_type == 'sdfweighted':
-                    (test_img, test_season, test_cond), test_lsm, test_topo, test_sdf, _ = samples
-                else:
-                    (test_img, test_season, test_cond), test_lsm, test_topo, _ = samples
+                n_axs = 0
+                data_plot = []
+                data_names = []
 
-                print(f'\n\n\nShape of test image: {test_img.shape}')
-                print(f'Shape of test season: {test_season.shape}')
-                print(f'Shape of test condition: {test_cond.shape}')
-                print(f'Shape of test lsm: {test_lsm.shape}')
-                if loss_type == 'sdfweighted':
-                    print(f'Shape of test topo: {test_topo.shape}')
-                    print(f'Shape of test sdf: {test_sdf.shape}\n\n')
-                else:
-                    print(f'Shape of test topo: {test_topo.shape}\n\n')
 
                 # Generate random fields of same shape as test image and send to device
                 x = torch.randn(n, input_channels, *image_size).to(device)
-                # Send all other parts of sample to device
-                test_season = test_season.to(device)
-                test_cond = test_cond.to(torch.float).to(device)
-                test_lsm = test_lsm.to(device)
-                test_topo = test_topo.to(device)
-                test_sdf = test_sdf.to(device)
-
-
-                # Print the shapes and types of the different tensors
-                print(f'\n\n\nShape of test truth image: {test_img.shape}')
-                print(f'Type: {test_img.dtype}')
                 print(f'Shape of noise: {x.shape}')
                 print(f'Type: {x.dtype}')
-                print(f'Shape of test season: {test_season.shape}')
-                print(f'Type: {test_season.dtype}')
-                print(f'Shape of test condition: {test_cond.shape}')
-                print(f'Type: {test_cond.dtype}')
-                print(f'Shape of test lsm: {test_lsm.shape}')
-                print(f'Type: {test_lsm.dtype}')
-                print(f'Shape of test topo: {test_topo.shape}')
-                print(f'Type: {test_topo.dtype}\n\n')
+                print('\n\n')                
 
+
+
+                # Get parts of samples and send to device
+                if 'img' in samples.keys():
+                    test_img = samples['img'].to(device)
+                    print(f'Shape of test truth image: {test_img.shape}')
+                    print(f'Type: {test_img.dtype}')
+                    n_axs += 1
+                    data_plot.append(test_img)
+                    data_names.append('Truth')
+                else:
+                    # Print error, you need to have images
+                    print('Error: you need to have images in your dataset')
+
+                if 'classifier' in samples.keys():
+                    test_seasons = samples['classifier'].to(device)
+                    print(f'Shape of test season: {test_seasons.shape}')
+                    print(f'Type: {test_seasons.dtype}')
+                else:
+                    test_seasons = None
+                    test_seasons = test_seasons.to(device)
+                    print('No season str condition')
+                
+                if 'img_cond' in samples.keys():
+                    test_cond = samples['img_cond'].to(device)
+                    test_cond = test_cond.to(torch.float).to(device)
+                    print(f'Shape of test condition: {test_cond.shape}')
+                    print(f'Type: {test_cond.dtype}')
+                    n_axs += 1
+                    data_plot.append(test_cond)
+                    data_names.append('Condition')
+                else:
+                    test_cond = None
+                    print('No conditional image')
+                
+                if 'lsm' in samples.keys():
+                    test_lsm = samples['lsm'].to(device)
+                    test_lsm = test_lsm.to(device)
+                    print(f'Shape of test lsm: {test_lsm.shape}')
+                    print(f'Type: {test_lsm.dtype}')
+                    n_axs += 1
+                    data_plot.append(test_lsm)
+                    data_names.append('LSM')
+                else:
+                    test_lsm = None
+                    print('No lsm')
+
+                if 'sdf' in samples.keys():
+                    test_sdf = samples['sdf'].to(device)
+                    print(f'Shape of test sdf: {test_sdf.shape}')
+                    print(f'Type: {test_sdf.dtype}')
+                    n_axs += 1
+                    data_plot.append(test_sdf)
+                    data_names.append('SDF')
+                else:
+                    test_sdf = None
+                    test_sdf = test_sdf.to(device)
+                    print('No sdf')
+                
+                if 'topo' in samples.keys():
+                    test_topo = samples['topo'].to(device)
+                    test_topo = test_topo.to(device)
+                    print(f'Shape of test topo: {test_topo.shape}')
+                    print(f'Type: {test_topo.dtype}')
+                    n_axs += 1
+                    data_plot.append(test_topo)
+                    data_names.append('Topography')
+                else:
+                    test_topo = None
+                    print('No topography')
 
                 # Generate image from model
-                generated_image = diffusion_utils.sample(x, pipeline.model, test_season, cond_img=test_cond, lsm_cond=test_lsm, topo_cond=test_topo)
+                generated_image = diffusion_utils.sample(x,
+                                                        pipeline.model,
+                                                        test_seasons,
+                                                        cond_img=test_cond,
+                                                        lsm_cond=test_lsm,
+                                                        topo_cond=test_topo
+                                                        )
                 generated_image = generated_image.detach().cpu()
+
+                data_plot.append(generated_image)
+                data_names.append('Generated')
+
+                fig, axs = plt.subplots(n_axs+1, n, figsize=(14,9)) # Plotting truth, condition, generated, lsm and topo for n different test images
+                
+                # Make the first row the generated images
+                for i in range(n):
+                    img = data_plot[-1][i].squeeze()
+                    image = axs[0, i].imshow(img, cmap='viridis')
+                    axs[0, i].set_title(f'{data_names[-1]}')
+                    axs[0, i].axis('off')
+                    axs[0, i].set_ylim([0, img.shape[0]])
+                    fig.colorbar(image, ax=axs[0, i], fraction=0.046, pad=0.04)
+
 
                 # Loop through the generated samples (and corresponding truth, condition, lsm and topo) and plot
                 for i in range(n_test_samples):
-                    img_truth = test_img[i].squeeze()
-                    img_cond = test_cond[i].squeeze()
-                    img_gen = generated_image[i].squeeze()
-                    img_lsm = test_lsm[i].squeeze()
-                    img_topo = test_topo[i].squeeze()
-
-                    image_truth = axs[0, i].imshow(img_truth, cmap='viridis')
-                    axs[0, i].set_title(f'Truth')
-                    axs[0, i].axis('off')
-                    axs[0, i].set_ylim([0, img_truth.shape[0]])
-                    fig.colorbar(image_truth, ax=axs[0, i], fraction=0.046, pad=0.04)
-                    
-                    image_cond = axs[1, i].imshow(img_cond, cmap='viridis')
-                    axs[1, i].set_title(f'Condition')
-                    axs[1, i].axis('off')
-                    axs[1, i].set_ylim([0, img_cond.shape[0]])
-                    fig.colorbar(image_cond, ax=axs[1, i], fraction=0.046, pad=0.04)
-
-                    image_gen = axs[2, i].imshow(img_gen, cmap='viridis')
-                    axs[2, i].set_title(f'Generated')
-                    axs[2, i].axis('off')
-                    axs[2, i].set_ylim([0, img_gen.shape[0]])
-                    fig.colorbar(image_gen, ax=axs[2, i], fraction=0.046, pad=0.04)
-
-                    image_lsm = axs[3, i].imshow(img_lsm, cmap='viridis')
-                    axs[3, i].set_title(f'LSM')
-                    axs[3, i].axis('off')
-                    axs[3, i].set_ylim([0, img_lsm.shape[0]])
-                    fig.colorbar(image_lsm, ax=axs[3, i], fraction=0.046, pad=0.04)
-
-                    image_topo = axs[4, i].imshow(img_topo, cmap='viridis')
-                    axs[4, i].set_title(f'Topography')
-                    axs[4, i].axis('off')
-                    axs[4, i].set_ylim([0, img_topo.shape[0]])
-                    fig.colorbar(image_topo, ax=axs[4, i], fraction=0.046, pad=0.04)
+                    for j in range(n_axs):
+                        img = data_plot[j][i].squeeze()
+                        image = axs[j+1, i].imshow(img, cmap='viridis')
+                        axs[j+1, i].set_title(f'{data_names[j]}')
+                        axs[j+1, i].axis('off')
+                        axs[j+1, i].set_ylim([0, img.shape[0]])
+                        fig.colorbar(image, ax=axs[j+1, i], fraction=0.046, pad=0.04)
 
                 fig.tight_layout()
-
-                fig.savefig(PATH_SAMPLES + '/' + NAME_SAMPLES + str(epoch+1) + '.png', dpi=600, bbox_inches='tight', pad_inches=0.1)
+                #plt.show()
+                
+                # Save figure
+                if epoch == (epochs - 1):
+                    fig.savefig(PATH_SAMPLES + '/' + NAME_FINAL_SAMPLES + '.png', dpi=600, bbox_inches='tight', pad_inches=0.1)
+                else:
+                    fig.savefig(PATH_SAMPLES + '/' + NAME_SAMPLES + str(epoch+1) + '.png', dpi=600, bbox_inches='tight', pad_inches=0.1)
+                
+                # Close figure
                 plt.close(fig)
-
                 break
 
 
@@ -588,113 +655,113 @@ if __name__ == '__main__':
         lr_scheduler.step(train_loss)
     
 
-    # Load best model state
-    best_model_path = checkpoint_path#os.path.join('../../ModelCheckpoints/DDPM_DANRA', 'DDPM.pth.tar')
-    best_model_state = torch.load(best_model_path)['network_params']
+    # # Load best model state
+    # best_model_path = checkpoint_path#os.path.join('../../ModelCheckpoints/DDPM_DANRA', 'DDPM.pth.tar')
+    # best_model_state = torch.load(best_model_path)['network_params']
 
-    # Load best model state into model
-    pipeline.model.load_state_dict(best_model_state)
+    # # Load best model state into model
+    # pipeline.model.load_state_dict(best_model_state)
 
-    print('Generating samples...')
+    # print('Generating samples...')
 
-    # Set number of samples to generate
+    # # Set number of samples to generate
     
-    n = 8
+    # n = 8
 
-    # Create a figure for plotting
-    fig, axs = plt.subplots(5, n, figsize=(18,8)) # Plotting truth, condition, generated, lsm and topo for n different test images
+    # # Create a figure for plotting
+    # fig, axs = plt.subplots(5, n, figsize=(18,8)) # Plotting truth, condition, generated, lsm and topo for n different test images
 
-    # Make a dataloader with batch size equal to n
-    final_dataloader = DataLoader(test_dataset, batch_size=n, shuffle=True, num_workers=1)
+    # # Make a dataloader with batch size equal to n
+    # final_dataloader = DataLoader(test_dataset, batch_size=n, shuffle=True, num_workers=1)
 
-    # Generate samples from final dataloader
-    for idx, samples in enumerate(final_dataloader):
-        if loss_type == 'sdfweighted':
-            (test_img, test_season, test_cond), test_lsm, test_topo, test_sdf, _ = samples
-        else:
-            (test_img, test_season, test_cond), test_lsm, test_topo, _ = samples
+    # # Generate samples from final dataloader
+    # for idx, samples in enumerate(final_dataloader):
+    #     if loss_type == 'sdfweighted':
+    #         (test_img, test_season, test_cond), test_lsm, test_topo, test_sdf, _ = samples
+    #     else:
+    #         (test_img, test_season, test_cond), test_lsm, test_topo, _ = samples
 
-        # Generate random fields of same shape as test image and send to device
-        x = torch.randn(n, input_channels, *image_size).to(device)
-        # Send all other parts of sample to device
-        test_season = test_season.to(device)
-        test_cond = test_cond.to(torch.float).to(device)
-        test_lsm = test_lsm.to(device)
-        test_topo = test_topo.to(device)
-        if loss_type == 'sdfweighted':
-            test_sdf = test_sdf.to(device)
-
-
-        # Print the shapes and types of the different tensors
-        print(f'\n\n\nShape of test truth image: {test_img.shape}')
-        print(f'Type: {test_img.dtype}')
-        print(f'Shape of noise: {x.shape}')
-        print(f'Type: {x.dtype}')
-        print(f'Shape of test season: {test_season.shape}')
-        print(f'Type: {test_season.dtype}')
-        print(f'Shape of test condition: {test_cond.shape}')
-        print(f'Type: {test_cond.dtype}')
-        print(f'Shape of test lsm: {test_lsm.shape}')
-        print(f'Type: {test_lsm.dtype}')
-        print(f'Shape of test topo: {test_topo.shape}')
-        print(f'Type: {test_topo.dtype}\n\n')
-        if loss_type == 'sdfweighted':
-            print(f'Shape of eval sdf: {test_sdf.shape}')
-            print(f'Type: {test_sdf.dtype}\n\n')
+    #     # Generate random fields of same shape as test image and send to device
+    #     x = torch.randn(n, input_channels, *image_size).to(device)
+    #     # Send all other parts of sample to device
+    #     test_season = test_season.to(device)
+    #     test_cond = test_cond.to(torch.float).to(device)
+    #     test_lsm = test_lsm.to(device)
+    #     test_topo = test_topo.to(device)
+    #     if loss_type == 'sdfweighted':
+    #         test_sdf = test_sdf.to(device)
 
 
-        # Generate image from model
-        generated_image = diffusion_utils.sample(x,
-                                                 pipeline.model,
-                                                 test_season,
-                                                 cond_img=test_cond,
-                                                 lsm_cond=test_lsm,
-                                                 topo_cond=test_topo)
-        generated_image = generated_image.detach().cpu()
+    #     # Print the shapes and types of the different tensors
+    #     print(f'\n\n\nShape of test truth image: {test_img.shape}')
+    #     print(f'Type: {test_img.dtype}')
+    #     print(f'Shape of noise: {x.shape}')
+    #     print(f'Type: {x.dtype}')
+    #     print(f'Shape of test season: {test_season.shape}')
+    #     print(f'Type: {test_season.dtype}')
+    #     print(f'Shape of test condition: {test_cond.shape}')
+    #     print(f'Type: {test_cond.dtype}')
+    #     print(f'Shape of test lsm: {test_lsm.shape}')
+    #     print(f'Type: {test_lsm.dtype}')
+    #     print(f'Shape of test topo: {test_topo.shape}')
+    #     print(f'Type: {test_topo.dtype}\n\n')
+    #     if loss_type == 'sdfweighted':
+    #         print(f'Shape of eval sdf: {test_sdf.shape}')
+    #         print(f'Type: {test_sdf.dtype}\n\n')
 
-        # Loop through the generated samples (and corresponding truth, condition, lsm and topo) and plot
-        for i in range(n_test_samples):
-            img_truth = test_img[i].squeeze()
-            img_cond = test_cond[i].squeeze()
-            img_gen = generated_image[i].squeeze()
-            img_lsm = test_lsm[i].squeeze()
-            img_topo = test_topo[i].squeeze()
 
-            image_truth = axs[0, i].imshow(img_truth, cmap='viridis')
-            axs[0, i].set_title(f'Truth')
-            axs[0, i].axis('off')
-            axs[0, i].set_ylim([0, img_truth.shape[0]])
-            fig.colorbar(image_truth, ax=axs[0, i], fraction=0.046, pad=0.04)
+    #     # Generate image from model
+    #     generated_image = diffusion_utils.sample(x,
+    #                                              pipeline.model,
+    #                                              test_season,
+    #                                              cond_img=test_cond,
+    #                                              lsm_cond=test_lsm,
+    #                                              topo_cond=test_topo)
+    #     generated_image = generated_image.detach().cpu()
+
+    #     # Loop through the generated samples (and corresponding truth, condition, lsm and topo) and plot
+    #     for i in range(n_test_samples):
+    #         img_truth = test_img[i].squeeze()
+    #         img_cond = test_cond[i].squeeze()
+    #         img_gen = generated_image[i].squeeze()
+    #         img_lsm = test_lsm[i].squeeze()
+    #         img_topo = test_topo[i].squeeze()
+
+    #         image_truth = axs[0, i].imshow(img_truth, cmap='viridis')
+    #         axs[0, i].set_title(f'Truth')
+    #         axs[0, i].axis('off')
+    #         axs[0, i].set_ylim([0, img_truth.shape[0]])
+    #         fig.colorbar(image_truth, ax=axs[0, i], fraction=0.046, pad=0.04)
             
-            image_cond = axs[1, i].imshow(img_cond, cmap='viridis')
-            axs[1, i].set_title(f'Condition')
-            axs[1, i].axis('off')
-            axs[1, i].set_ylim([0, img_cond.shape[0]])
-            fig.colorbar(image_cond, ax=axs[1, i], fraction=0.046, pad=0.04)
+    #         image_cond = axs[1, i].imshow(img_cond, cmap='viridis')
+    #         axs[1, i].set_title(f'Condition')
+    #         axs[1, i].axis('off')
+    #         axs[1, i].set_ylim([0, img_cond.shape[0]])
+    #         fig.colorbar(image_cond, ax=axs[1, i], fraction=0.046, pad=0.04)
 
-            image_gen = axs[2, i].imshow(img_gen, cmap='viridis')
-            axs[2, i].set_title(f'Generated')
-            axs[2, i].axis('off')
-            axs[2, i].set_ylim([0, img_gen.shape[0]])
-            fig.colorbar(image_gen, ax=axs[2, i], fraction=0.046, pad=0.04)
+    #         image_gen = axs[2, i].imshow(img_gen, cmap='viridis')
+    #         axs[2, i].set_title(f'Generated')
+    #         axs[2, i].axis('off')
+    #         axs[2, i].set_ylim([0, img_gen.shape[0]])
+    #         fig.colorbar(image_gen, ax=axs[2, i], fraction=0.046, pad=0.04)
 
-            image_lsm = axs[3, i].imshow(img_lsm, cmap='viridis')
-            axs[3, i].set_title(f'LSM')
-            axs[3, i].axis('off')
-            axs[3, i].set_ylim([0, img_lsm.shape[0]])
-            fig.colorbar(image_lsm, ax=axs[3, i], fraction=0.046, pad=0.04)
+    #         image_lsm = axs[3, i].imshow(img_lsm, cmap='viridis')
+    #         axs[3, i].set_title(f'LSM')
+    #         axs[3, i].axis('off')
+    #         axs[3, i].set_ylim([0, img_lsm.shape[0]])
+    #         fig.colorbar(image_lsm, ax=axs[3, i], fraction=0.046, pad=0.04)
 
-            image_topo = axs[4, i].imshow(img_topo, cmap='viridis')
-            axs[4, i].set_title(f'Topography')
-            axs[4, i].axis('off')
-            axs[4, i].set_ylim([0, img_topo.shape[0]])
-            fig.colorbar(image_topo, ax=axs[4, i], fraction=0.046, pad=0.04)
+    #         image_topo = axs[4, i].imshow(img_topo, cmap='viridis')
+    #         axs[4, i].set_title(f'Topography')
+    #         axs[4, i].axis('off')
+    #         axs[4, i].set_ylim([0, img_topo.shape[0]])
+    #         fig.colorbar(image_topo, ax=axs[4, i], fraction=0.046, pad=0.04)
 
-        fig.tight_layout()
+    #     fig.tight_layout()
 
-        # Save figure
-        fig.savefig(PATH_SAMPLES + '/' + NAME_FINAL_SAMPLES + '.png', dpi=600, bbox_inches='tight', pad_inches=0.1)
-        plt.close(fig)
+    #     # Save figure
+    #     fig.savefig(PATH_SAMPLES + '/' + NAME_FINAL_SAMPLES + '.png', dpi=600, bbox_inches='tight', pad_inches=0.1)
+    #     plt.close(fig)
 
 
 

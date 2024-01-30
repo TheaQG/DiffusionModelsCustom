@@ -232,6 +232,9 @@ if __name__ == '__main__':
         print(f'\n\n\nNo lsm or topography tensor found...\n\n')
         print(f'Continuing without lsm and topography tensors...\n\n')
 
+    # Make sure to close figures
+    plt.close(fig)
+
     CUTOUTS = True
     CUTOUT_DOMAINS = [170, 170+180, 340, 340+180]
     
@@ -604,6 +607,9 @@ if __name__ == '__main__':
             ax.set_title('Loss')
             ax.legend(loc='upper right')
             fig.savefig(PATH_SAMPLES + '/' + NAME_LOSSES + '.png', dpi=600, bbox_inches='tight', pad_inches=0.1)
+
+            # Make sure all figures are closed
+            plt.close('all')
 
             with open(PATH_LOSSES + '/' + NAME_LOSSES + '_train', 'wb') as fp:
                 pickle.dump(train_losses, fp)

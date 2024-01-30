@@ -213,6 +213,9 @@ class TrainingPipeline_Hybrid:
         if verbose:
             print(f'Training Loss: {loss}')
 
+        # Make sure all figures are closed
+        plt.close('all')
+
         return loss
 
 
@@ -379,7 +382,8 @@ class TrainingPipeline:
         # Print training loss if verbose is True
         if verbose:
             print(f'Training Loss: {loss}')
-
+        # Make sure all figures are closed
+        plt.close('all')
         return loss
     
     def validate(self, dataloader, verbose=True):
@@ -426,6 +430,9 @@ class TrainingPipeline:
         # Print validation loss if verbose is True
         if verbose:
             print(f'Validation Loss: {val_loss}')
+
+        # Make sure all figures are closed
+        plt.close('all')
 
         return val_loss
 
@@ -631,7 +638,8 @@ class TrainingPipeline_new:
         # Print training loss if verbose is True
         if verbose:
             print(f'Training Loss: {loss}')
-
+        # Make sure all figures are closed
+        plt.close('all')
         return loss
     
     def validate(self, dataloader, verbose=True):
@@ -682,6 +690,9 @@ class TrainingPipeline_new:
         # Print validation loss if verbose is True
         if verbose:
             print(f'Validation Loss: {val_loss}')
+
+        # Make sure all figures are closed
+        plt.close('all')
 
         return val_loss
 
@@ -977,6 +988,8 @@ class TrainingPipeline_general:
         if verbose:
             print(f'Training Loss: {loss}')
 
+        # Make sure all figures are closed
+        plt.close('all')
         return loss
     
     def validate(self, dataloader, verbose=True):
@@ -1252,6 +1265,9 @@ class TrainingPipeline_ERA5_Condition:
         if verbose:
             print(f'Training Loss: {loss}')
 
+        # Make sure all figures are closed
+        plt.close('all')
+        
         return loss
     
     def validate(self, dataloader, verbose=True):

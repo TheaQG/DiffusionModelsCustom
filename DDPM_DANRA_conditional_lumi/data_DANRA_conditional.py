@@ -704,6 +704,7 @@ if __name__ == '__main__':
     fig3.set_tight_layout(True)
     fig4.set_tight_layout(True)
     #plt.show()
+    plt.close('all')
 
 
 

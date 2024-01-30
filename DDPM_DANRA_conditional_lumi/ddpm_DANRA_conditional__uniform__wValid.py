@@ -238,6 +238,9 @@ if __name__ == '__main__':
         print(f'\n\n\nNo lsm or topography tensor found...\n\n')
         print(f'Continuing without lsm and topography tensors...\n\n')
 
+    # Make sure to close figure
+    plt.close(fig)
+
     CUTOUTS = True
     CUTOUT_DOMAINS = [170, 170+180, 340, 340+180]
     
@@ -615,6 +618,9 @@ if __name__ == '__main__':
                 pickle.dump(train_losses, fp)
             with open(PATH_LOSSES + '/' + NAME_LOSSES + '_valid', 'wb') as fp:
                 pickle.dump(valid_losses, fp)
-
+                
+        # Make sure all figures are closed
+        plt.close('all')
+        
         # Step the learning rate scheduler
         lr_scheduler.step(train_loss)

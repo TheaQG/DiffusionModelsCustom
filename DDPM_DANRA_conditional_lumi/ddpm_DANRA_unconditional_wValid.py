@@ -214,6 +214,8 @@ if __name__ == '__main__':
             ax.set_ylim(ax.get_ylim()[::-1])
             fig.colorbar(im_topo, ax=ax, fraction=0.046, pad=0.04)
         fig.savefig(PATH_SAMPLES + f'/ddpm_conditional__{var}_lsm_topo.png', dpi=600, bbox_inches='tight', pad_inches=0.1)
+        # Close figure
+        plt.close(fig)
 
     elif n_plots == 2:
         fig, axs = plt.subplots(1, 2, figsize=(10, 5))
@@ -230,7 +232,8 @@ if __name__ == '__main__':
         print(f'\n\n\nSaving lsm and topography figure...')
         print('\n\n')
         fig.savefig(PATH_SAMPLES + f'/ddpm_conditional__{var}_lsm_topo.png', dpi=600, bbox_inches='tight', pad_inches=0.1)
-
+        # Close figure
+        plt.close(fig)
     elif n_plots == 0:
         print(f'\n\n\nNo lsm or topography tensor found...\n\n')
         print(f'Continuing without lsm and topography tensors...\n\n')
@@ -610,6 +613,9 @@ if __name__ == '__main__':
                 pickle.dump(train_losses, fp)
             with open(PATH_LOSSES + '/' + NAME_LOSSES + '_valid', 'wb') as fp:
                 pickle.dump(valid_losses, fp)
+
+        # Make sure all figures are closed
+        plt.close('all')
 
         # Step the learning rate scheduler
         lr_scheduler.step(train_loss)

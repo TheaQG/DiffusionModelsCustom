@@ -14,23 +14,24 @@ if __name__ == '__main__':
     print('\n\n')
 
     var = 'temp'
-    loss_type = 'simple'#'sdfweighted'
+    loss_type = 'sdfweighted'#'simple'#
     danra_size = 64
-    n_seasons = 4
+    n_seasons = 4#None#4#
     n_samples_gen = 100
 
     image_dim = danra_size
     im_dim_str = str(image_dim) + 'x' + str(image_dim)
 
-    cond_str = 'ERA5_cond_lsm_topo_random__' + loss_type + '__' + str(n_seasons) + '_seasons' + '_ValidSplitInTime_9yrs'
+    cond_str = 'ERA5_cond_lsm_topo_random__' + loss_type + '__' + str(n_seasons) + '_seasons' + '_ValidSplitInTime_9yrs_ValLoss'  #- 'sdfweighted' '4' seasons
     # HAVE NOT BEEN EVALUATED:    
-    #'unconditional_random__' + loss_type + '__' + str(n_seasons) + '_seasons' + '_ValidSplitInTime_9yrs' #- 'simple' 'None' seasons
-    #'DDPM_unconditional'
 
 
 
 
     # HAVE BEEN EVALUATED:
+    #'unconditional_random__' + loss_type + '__' + str(n_seasons) + '_seasons' + '_ValidSplitInTime_9yrs' #- 'simple' 'None' seasons
+    #'DDPM_unconditional'
+
     #'ERA5_cond_lsm_topo_random__' + loss_type + '__' + str(n_seasons) + '_seasons' + '_ValidSplitInTime_9yrs' #  - 'simple' '4' seasons
     #'DDPM_conditional_ERA5'
 
@@ -143,18 +144,18 @@ if __name__ == '__main__':
     # axs[0].set_xlabel(f'MAE')
     # axs[0].set_ylabel(f'Count')
 
-    axs[0].hist(rmse_daily, bins=18, alpha=0.7, label='RMSE daily', edgecolor='k')
+    axs[0].hist(rmse_daily, bins=150, alpha=0.7, label='RMSE daily', edgecolor='k')
     axs[0].set_title(f'RMSE daily', fontsize=16)
     axs[0].tick_params(axis='y', which='major', labelsize=14)
     #axs[0].set_xlabel(f'RMSE')
     axs[0].set_ylabel(f'Count', fontsize=16)
 
-    axs[1].hist(rmse_all, bins=70, alpha=0.7, label='RMSE all pixels', edgecolor='k')
+    axs[1].hist(rmse_all, bins=1200, alpha=0.7, label='RMSE all pixels', edgecolor='k')
     axs[1].set_title(f'RMSE for all pixels', fontsize=16)
     axs[1].tick_params(axis='both', which='major', labelsize=14)
     axs[1].set_xlabel(f'RMSE', fontsize=16)
     axs[1].set_ylabel(f'Count', fontsize=16)
-    #axs[1].set_xlim([0, 25])
+    axs[1].set_xlim([0, 25])
 
     fig.tight_layout()
     fig.savefig(FIG_PATH + cond_str + '__RMSE_histograms.png', dpi=600, bbox_inches='tight')
@@ -162,7 +163,7 @@ if __name__ == '__main__':
 
     # Plot the pixel-wise distribution of the generated and eval images
     fig, ax = plt.subplots(figsize=(8,4))
-    ax.hist(gen_imgs.flatten(), bins=1000, alpha=0.5, label='Generated')
+    ax.hist(gen_imgs.flatten(), bins=3000, alpha=0.5, label='Generated')
     ax.hist(eval_imgs.flatten(), bins=50, alpha=0.5, color='r', label='Eval')
     ax.axvline(x=np.nanmean(eval_imgs.flatten()), color='r', alpha=0.5, linestyle='--', label=f'Eval mean, {np.nanmean(eval_imgs.flatten()):.2f}')
     ax.axvline(x=np.nanmean(gen_imgs.flatten()), color='b', alpha=0.5, linestyle='--', label=f'Generated mean, {np.nanmean(gen_imgs.flatten()):.2f}')

@@ -1,9 +1,11 @@
 import os, tqdm, torch
-from multiprocessing import freeze_support
 import torch.nn as nn
 import matplotlib.pyplot as plt
+
+from multiprocessing import freeze_support
 from modules_DANRA_conditional import *
 from diffusion_DANRA_conditional import DiffusionUtils
+from torch.cuda.amp import autocast, GradScaler
 
 class SimpleLoss(nn.Module):
     def __init__(self):
@@ -775,7 +777,9 @@ class TrainingPipeline_general:
               verbose=True,
               PLOT_FIRST=False,
               SAVE_PATH='./',
-              SAVE_NAME='upsampled_image.png'):
+              SAVE_NAME='upsampled_image.png',
+              use_mixed_precision=True
+              ):
         '''
             Function for training model.
             Input:
@@ -787,6 +791,12 @@ class TrainingPipeline_general:
         # Set loss to 0
         loss = 0.0
         
+        # Check if cuda is available and if mixed precision is available
+        if torch.cuda.is_available() and use_mixed_precision:
+            self.scaler = GradScaler()
+        else:
+            self.scaler = None
+
         # Loop over batches(tuple of img and seasons) in dataloader, using tqdm for progress bar
         for idx, samples in tqdm.tqdm(enumerate(dataloader)):
             # Samples is now a dict with available keys: 'img', 'classifier', 'img_cond', 'lsm', 'sdf', 'topo', 'points'
@@ -840,9 +850,6 @@ class TrainingPipeline_general:
                 #print(f'Topo is of type: {topo.dtype}')
             else:
                 topo = None
-
-            # Set gradients to zero
-            self.model.zero_grad()
             
             if PLOT_FIRST:
                 n_samples = 8
@@ -947,26 +954,55 @@ class TrainingPipeline_general:
 
             # Sample noise from diffusion utils
             x_t, noise = self.diffusion_utils.noiseImage(images, t)
-
-            # Set predicted noise as output from model dependent on available conditions
             
-            predicted_noise = self.model(x_t,
-                                         t,
-                                         seasons,
-                                         cond_images,
-                                         lsm,
-                                         topo)
+            
+            # Set gradients to zero
+            self.optimizer.zero_grad()
 
-            # Calculate loss
-            if self.sdf_weighted_loss:
-                batch_loss = self.lossfunc(predicted_noise, noise, sdf)
+            # If mixed precision is available, use autocast
+            if self.scaler:
+                with autocast():
+                    # Set predicted noise as output from model dependent on available conditions
+                    predicted_noise = self.model(x_t,
+                                                t,
+                                                seasons,
+                                                cond_images,
+                                                lsm,
+                                                topo)
+
+                    # Calculate loss
+                    if self.sdf_weighted_loss:
+                        batch_loss = self.lossfunc(predicted_noise, noise, sdf)
+                    else:
+                        batch_loss = self.lossfunc(predicted_noise, noise)
+
+                # Mixed precision: scale loss and backward pass
+                self.scaler.scale(batch_loss).backward()
+                # Update weights
+                self.scaler.step(self.optimizer)
+                # Update scaler
+                self.scaler.update()
+
+            # If mixed precision is not available, do not use autocast
             else:
-                batch_loss = self.lossfunc(predicted_noise, noise)
+                predicted_noise = self.model(x_t,
+                                            t,
+                                            seasons,
+                                            cond_images,
+                                            lsm,
+                                            topo)
 
-            # Backpropagate loss
-            batch_loss.backward()
-            # Update weights
-            self.optimizer.step()
+                # Calculate loss
+                if self.sdf_weighted_loss:
+                    batch_loss = self.lossfunc(predicted_noise, noise, sdf)
+                else:
+                    batch_loss = self.lossfunc(predicted_noise, noise)
+
+                # Backpropagate loss
+                batch_loss.backward()
+                # Update weights
+                self.optimizer.step()
+
             # Add batch loss to total loss
             loss += batch_loss.item()
 
@@ -979,12 +1015,15 @@ class TrainingPipeline_general:
 
         return loss
     
-    def validate(self, dataloader, verbose=True):
+    def validate(self, dataloader, verbose=True, use_mixed_precision=True):
         # Set model to eval mode
         self.model.eval()
 
         # Set loss to 0
         val_loss = 0.0
+
+        # Check if cuda is available and if mixed precision is available
+        use_cuda = torch.cuda.is_available()
 
         # Loop over batches(tuple of img and seasons) in dataloader, using tqdm for progress bar
         for idx, samples in tqdm.tqdm(enumerate(dataloader)):
@@ -1018,24 +1057,37 @@ class TrainingPipeline_general:
             else:
                 topo = None
 
-
-            # Set gradients to zero
-            self.model.zero_grad()
-            
             # Sample timesteps from diffusion utils
             t = self.diffusion_utils.sampleTimesteps(images.shape[0])
 
             # Sample noise from diffusion utils
             x_t, noise = self.diffusion_utils.noiseImage(images, t)
 
-            # Set predicted noise as output from model
-            predicted_noise = self.model(x_t, t, seasons, cond_images, lsm, topo)
 
-            # Calculate loss
-            if self.sdf_weighted_loss:
-                batch_loss = self.lossfunc(predicted_noise, noise, sdf)
+            # If mixed precision and CUDA is available, use autocast
+            if use_cuda and use_mixed_precision:
+                # Mixed precision training: autocast forward pass
+                with autocast():
+
+                    # Set predicted noise as output from model
+                    predicted_noise = self.model(x_t, t, seasons, cond_images, lsm, topo)
+
+                    # Calculate loss
+                    if self.sdf_weighted_loss:
+                        batch_loss = self.lossfunc(predicted_noise, noise, sdf)
+                    else:
+                        batch_loss = self.lossfunc(predicted_noise, noise)
+
             else:
-                batch_loss = self.lossfunc(predicted_noise, noise)
+                # Set predicted noise as output from model
+                predicted_noise = self.model(x_t, t, seasons, cond_images, lsm, topo)
+
+                # Calculate loss
+                if self.sdf_weighted_loss:
+                    batch_loss = self.lossfunc(predicted_noise, noise, sdf)
+                else:
+                    batch_loss = self.lossfunc(predicted_noise, noise)
+
 
             # Add batch loss to total loss
             val_loss += batch_loss.item()

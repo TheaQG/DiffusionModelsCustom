@@ -68,6 +68,7 @@ class ImageSelfAttention(nn.Module):
     ''' 
         Class for image self-attention. Self-attention is a mechanism that allows the model to focus on more important features.
         Focus on one thing and ignore other things that seem irrelevant at the moment.
+        The attention value is of size (N, C, H, W), where N is the number of samples, C is the number of channels, and H and W are the height and width of the input.
     '''
     def __init__(self, input_channels:int, n_heads:int):
         '''

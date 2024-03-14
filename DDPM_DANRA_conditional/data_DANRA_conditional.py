@@ -1272,7 +1272,7 @@ if __name__ == '__main__':
     
     CUTOUTS = True
     CUTOUT_DOMAINS = [170, 170+180, 340, 340+180]
-
+    # DOMAIN_2 = [80, 80+130, 200, 200+450]
     # Set paths to lsm and topo if used
     if sample_w_lsm_topo:
         data_dir_lsm = '/Users/au728490/Documents/PhD_AU/Python_Scripts/Data/Data_DiffMod/data_lsm/truth_fullDomain/lsm_full.npz'

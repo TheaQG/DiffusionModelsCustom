@@ -1,0 +1,67 @@
+# config.yaml
+
+data:
+  config_name: 'ddpm' # Name of the configuration
+  HR_VAR: 'temp' #'temp' or 'prcp'.
+  HR_SHAPE: (64, 64) # Size of the high resolution field 
+  LR_VARS: ['temp'] # List of variables to include in the low resolution fields (conditions), 'temp', 'prcp', 'nwvf', 'ewvf' or 'None'
+  LR_SHAPE: [(32, 32)] # Sizes of the low resolution fields
+  scaling: 'Zscore' # 'Zscore', 'MinMax' or 'None'
+  scaling_params: {'mean': 0, 'std': 1} # Parameters for scaling. If minmax, {'min': 0, 'max': 1, old_min': 0, 'old_max': 1}
+  geo_conditions: ['lsm', 'topo'] # List of geographical conditions to include, 'lsm', 'topo' or 'None'
+  season_condition: ['categorical'] # List of seasonal conditions to include, 'categorical', 'sin_cos' or 'None'
+  season_shape: (4,) # Shape of the seasonal condition, (4,) for 'categorical' and (2,) for 'sin_cos', (0,) for 'None'
+  path_data: 'data/' # Path to save the data
+  path_save: 'diffusionNet/' # Path to save different things. Creates folder named model_name inside this path, and four subfolders: 'samples', 'models', 'logs' and 'losses'
+  path_checkpoint: 'diffusionNet/models/' # Path to save the model checkpoints
+  create_figs: True # If True, creates figures of samples and losses, and saves them in the path_save/samples or /losses folder
+  CUTOUTS: True # If True, applies cutouts to the high resolution field during training
+  CUTOUT_DOMAINS: [170, 350, 340, 520] # Domain of the cutouts, [x1, x2, y1, y2]
+  cache_size: 1000 # Number of samples to cache in memory
+  num_workers: 4 # Number of workers for the dataloader
+  n_test_samples: 100 # Number of samples to generate for testing
+  data_split_type: 'random' # 'random' or 'temporal'
+  data_split_params: {'train_size': 0.8, 'val_size': 0.1, 'test_size': 0.1} # Parameters for the data split
+  dataset_size: 1000 # Number of samples to generate for training
+  repeat_samples: 1 # Number of times to repeat the samples in the dataset (if dataset_size < n_samples, repeat samples)
+
+training:
+  epochs: 100 # Number of epochs to train
+  batch_size: 32 # Batch size
+  device: 'cpu' # 'cuda' or 
+  lr: 0.0001 # Learning rate
+  min_lr: 0.00001 # Minimum learning rate
+  model_name: 'diffusionNet' # Name of the model
+  model_type: 'diffusionNet' # 'diffusionNet' or 'diffusionNet_v2'
+  time_embedding_size: 256 # Size of the time embedding
+  weight_decay: 0.0001 # Weight decay
+  loss_type: 'simple' # 'simple', 'sdf_weighted'
+  optimizer: 'adam' # 'adam' or 'sgd'
+  lr_scheduler: 'ReduceLROnPlateau' # 'ReduceLROnPlateau' or 'None'
+  lr_scheduler_params: {'factor': 0.5, 'patience': 5, 'threshold': 0.0001} # Parameters for the learning rate scheduler
+  load_prev_modelstate: False # If True, loads the previous model state
+  cfg_fraction: 0.1 # Fraction of classifier free guidance to apply to the diffusion model
+  n_gen_samples: 4 # Number of samples to generate during training
+
+unet:
+  in_channels: 1 # Number of input channels
+  out_channels: 1 # Number of output channels
+  first_fmap_channels: 32 # Number of channels in the first layer
+  last_fmap_channels: 512 # Number of channels in the last layer
+  num_heads: 1 # Number of heads for the self-attention
+  padding: True # If True, applies padding to the convolutions
+  batch_norm: True # If True, applies batch normalization
+  up_mode: 'upconv' # 'upconv' or 'upsample'
+  dropout: 0.0 # Dropout rate
+
+diffusion:
+  n_timesteps: 1000 # Number of timesteps to diffuse
+  beta_range: [0.00001, 0.02] # Range of beta values to sample from
+  beta_scheduler: 'cosine' # 'cosine' or 'linear'
+  noise_variance: 0.005 # Variance of the noise
+
+
+
+
+
+
